@@ -1,10 +1,10 @@
-## :sparkles: About
+## :boom: About
 
 This is a modern lightweight (~7kB) and zero dependencies JS library to create input range sliders with one or two drag handles.
 
 ![alt text](https://github.com/yanalexandrov1987/Ranger.js/blob/main/img.png)
 
-## :sparkles: Features
+## :+1: Features
 
 - High CSS customizable
 - Touch accessible
