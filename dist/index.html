@@ -11,34 +11,32 @@
     <style>
       body {
         font-family: "Commissioner", sans-serif;
+        padding: 5rem;
       }
     </style>
     <title>Home Page</title>
   </head>
-  <body style="padding: 5rem 1.5rem">
+  <body>
     <input class="rs-input" value="2009,2014" onchange="document.querySelector('.result').innerHTML = this.value" />
     <div class="result"></div>
-    <br /><br /><br /><br /><input class="rs-input" id="slider2" /><br /><br /><br /><br /><input
-      class="rs-input"
-      id="slider4"
-    />
+    <br /><br /><br /><input class="rs-input" id="slider2" /><br /><br /><br /><input class="rs-input" id="slider4" />
     <script>
       (function () {
         "use strict";
 
         var init = function () {
-          new Ranger('.rs-input', {
+          new Ranger(".rs-input", {
             values: { min: -1, max: 1 },
             step: 0.01,
             set: [0.2, 0.6],
             scale: true,
             range: true,
             ticksCount: 10,
-            tickPrefix: '',
-            tickSuffix: '',
+            tickPrefix: "",
+            tickSuffix: "",
             labels: true,
-            labelPrefix: '',
-            labelSuffix: '',
+            labelPrefix: "",
+            labelSuffix: "",
             tooltip: true,
             disabled: false,
           });
