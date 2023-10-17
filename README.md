@@ -1,4 +1,4 @@
-## :sparkles: Usage
+## :sparkles: About
 
 This is a modern lightweight (~7kB) and zero dependencies JS library to create input range sliders with one or two drag handles.
 
