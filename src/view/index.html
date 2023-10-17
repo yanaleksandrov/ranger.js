@@ -1,0 +1,67 @@
+<% var data = {
+  title: "Home Page"
+}; %>
+<%= _.template(require('./parts/header.html').default)(data) %>
+
+  <input type="text" class="rs-input" value="2009,2014" onchange="document.querySelector('.result').innerHTML = this.value" />
+  <div class="result"></div>
+  <br>
+  <br>
+  <br>
+  <br>
+  <input type="text" class="rs-input" id="slider2" />
+  <br>
+  <br>
+  <br>
+  <br>
+  <input type="text" class="rs-input" id="slider4" />
+
+  <script>
+    (function () {
+      'use strict';
+
+      var init = function () {
+
+        new Ranger('.rs-input',{
+          values: {min: -1, max: 1},
+          step: 0.01,
+          set: [0.2, 0.6],
+          scale: true,
+          range: true,
+          ticksCount: 10,
+          tickPrefix: '',
+          tickSuffix: '',
+          labels: true,
+          labelPrefix: '',
+          labelSuffix: '',
+          tooltip: true,
+          disabled: false,
+        });
+
+        var slider2 = new Ranger('#slider2',{
+          values: {min: 2, max: 8},
+          range: false,
+          set: [5],
+          tooltip: false,
+        });
+
+        var slider4 = new Ranger('#slider4',{
+          values: {min: 0, max: 50000},
+          tickPrefix: '$',
+          step: 100,
+          range: true,
+          set: [5000, 20000],
+          ticksCount: 10,
+          on: {
+            init: ranger => {
+              ranger.ticks = ranger.ticks.map(tick => tick % 1000 === 0 ? `${tick / 1000}k` : tick);
+            },
+            change: ranger => console.log(ranger.input.value),
+          },
+        });
+      };
+      window.onload = init;
+    })();
+  </script>
+
+<%= _.template(require('./parts/footer.html').default)(data) %>
