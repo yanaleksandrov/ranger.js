@@ -1,41 +1,58 @@
-# Starter WebPack
+This is a modern lightweight (~7kB) and zero dependencies JS library to create input range sliders with one or two drag handles.
 
-Here is a simple and easy starter web project.
+![alt text](https://github.com/yanalexandrov1987/Ranger.js/blob/main/demo.png)
 
-The site is a simple set of HTML pages with its own CSS styles and a JavaScript file. It is necessary to write a project that would assemble our site from source:
+## :sparkles: Features
 
-- one CSS file is formed from SASS (more precisely SCSS) files;
-- a single JavaScript file is generated from various JavaScript libraries and user code;
-- HTML pages are assembled using a template, where the contents of the header and footer can be separated into separate files.
+- High CSS customizable
+- Touch accessible
+- Supports negative & fractional values
+- Zero dependencies
+- Supported by all major browsers
 
-## How to start
+## :sparkles: Usage
 
-Run `npm install`
+Add input field.
 
-Run `npm run start` for a dev server. Navigate to `http://localhost:3000/`. The app will automatically reload if you change any of the source files.
-
-Run `npm run build` to build the project. We are assembling the project and the assembled static site will appear in the `dist` folder.
-
-## Project structure
-
-The general structure of the project is presented below:
-
+```html
+<input class="rs-input" />
 ```
-├── dist
-├─┬ src
-│ ├─┬ fonts
-│ │ └── Roboto-Regular.ttf
-│ ├─┬ view
-│ │ ├─┬ parts
-│ │ │ ├── footer.html
-│ │ │ └── header.html
-│ │ └── index.html
-│ ├─┬ images
-│ │ └── favicon.ico
-│ ├── scripts
-│ ├── styles
-│ ├── index.js
-│ └── styles.scss
-├── package.json
-└── webpack.config.js
+
+Init library.
+
+```js
+new Ranger('.rs-input', {
+  values: { min: -1, max: 1 },
+  step: 0.01,
+  set: [0.2, 0.6],
+  scale: true,
+  range: true,
+  ticksCount: 10,
+  tickPrefix: '',
+  tickSuffix: '',
+  labels: true,
+  labelPrefix: '',
+  labelSuffix: '',
+  tooltip: true,
+  disabled: false,
+});
 ```
+
+## :sparkles: API
+
+| Property                | Type          | Default value | Description |
+|-------------------------|---------------|---------------| --- |
+| `values.min` - required | number, float | null          | --- |
+| `values.max` - required | number, float | null          | --- |
+| `step`                  | number, float | 1             | --- |
+| `set`                   | number        | null          | --- |
+| `scale`                 | boolean       | true          | --- |
+| `range`                 | boolean       | false         | --- |
+| `ticksCount`            | number        | 10            | --- |
+| `tickPrefix`            | string        | ''            | --- |
+| `tickSuffix`            | string        | ''            | --- |
+| `labels`                | boolean       | true          | --- |
+| `labelPrefix`           | string        | ''            | --- |
+| `labelSuffix`           | string        | ''            | --- |
+| `tooltip`               | boolean       | true          | --- |
+| `disabled`              | boolean       | false         | --- |
