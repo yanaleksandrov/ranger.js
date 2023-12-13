@@ -11,16 +11,17 @@ const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const generateHtmlPlugin = dir => {
   const files = fs.readdirSync(path.resolve(__dirname, dir));
 
-  return files.reduce(item => {
-    const [name, extension] = item.split('.');
+  return files.reduce((acc, file) => {
+    const [name, extension] = file.split('.');
     if (extension) {
-      return new HtmlWebpackPlugin({
+      acc.push(new HtmlWebpackPlugin({
         filename: `${name}.html`,
         template: path.resolve(__dirname, `${dir}/${name}.${extension}`),
         inject: false,
-      });
+      }));
     }
-  });
+    return acc;
+  }, []);
 }
 
 module.exports = {
