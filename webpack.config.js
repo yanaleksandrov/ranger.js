@@ -41,7 +41,18 @@ module.exports = {
     open: true,
     hot: true,
     compress: true,
-    historyApiFallback: true,
+    historyApiFallback: {
+      rewrites: fs.readdirSync(path.resolve(__dirname, 'src/view')).map(file => {
+        const [name, extension] = file.split('.');
+
+        if (extension === 'html') {
+          return { from: new RegExp(`^\\/${name}`), to: `/${file}` };
+        } else if ( name === 'index' ) {
+          return { from: /./, to: `/${name}/index.html` };
+        }
+        return null;
+      }).filter(item => item !== null),
+    },
   },
   performance : {
     hints : false
