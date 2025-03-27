@@ -1,109 +1,29 @@
 /**
- * Rounds the number taking into account the value
- *
- * @param value
- * @returns {number}
- */
-export const roundValue = value => {
-  const num = Math.abs(value);
-
-  if (num < 1) {
-    return Number(value.toFixed(2));
-  } else {
-    let power   = Math.floor(Math.log10(num)),
-        divisor = Math.pow(10, power - 1);
-
-    return parseFloat((Math.round(value / divisor) * divisor).toFixed(2));
-  }
-}
-
-/**
+ * Create new element.
  *
  * @param el
- * @param cls
- * @param dataAttr
- * @returns {ActiveX.IXMLDOMElement}
+ * @param classes
+ * @param content
+ * @returns {HTMLAnchorElement | HTMLElement | HTMLAreaElement | HTMLAudioElement | HTMLBaseElement | HTMLQuoteElement | HTMLBodyElement | HTMLBRElement | HTMLButtonElement | HTMLCanvasElement | HTMLTableCaptionElement | HTMLTableColElement | HTMLDataElement | HTMLDataListElement | HTMLModElement | HTMLDetailsElement | HTMLDialogElement | HTMLDivElement | HTMLDListElement | HTMLEmbedElement | HTMLFieldSetElement | HTMLFormElement | HTMLHeadingElement | HTMLHeadElement | HTMLHRElement | HTMLHtmlElement | HTMLIFrameElement | HTMLImageElement | HTMLInputElement | HTMLLabelElement | HTMLLegendElement | HTMLLIElement | HTMLLinkElement | HTMLMapElement | HTMLMenuElement | HTMLMetaElement | HTMLMeterElement | HTMLObjectElement | HTMLOListElement | HTMLOptGroupElement | HTMLOptionElement | HTMLOutputElement | HTMLParagraphElement | HTMLPictureElement | HTMLPreElement | HTMLProgressElement | HTMLScriptElement | HTMLSelectElement | HTMLSlotElement | HTMLSourceElement | HTMLSpanElement | HTMLStyleElement | HTMLTableElement | HTMLTableSectionElement | HTMLTableCellElement | HTMLTemplateElement | HTMLTextAreaElement | HTMLTimeElement | HTMLTitleElement | HTMLTableRowElement | HTMLTrackElement | HTMLUListElement | HTMLVideoElement}
  */
-export const createElement = (el, cls, dataAttr) => {
+export const createElement = (el, classes, content ='') => {
   let element = document.createElement(el);
-  if (cls) {
-    element.className = cls
+  if (classes) {
+    element.className = classes;
   }
-  if (dataAttr && dataAttr.length === 2) {
-    element.setAttribute('data-' + dataAttr[0], dataAttr[1]);
+  if (content) {
+    element.innerHTML = content;
   }
   return element;
 }
 
 /**
+ * Round numbers.
  *
- * @param el
- * @param ev
- * @param callback
+ * @param value
+ * @param step
+ * @returns {number}
  */
-export const createEvents = (el, ev, callback) => {
-  let events = ev.split(' ');
-  for (let i = 0, iLen = events.length; i < iLen; i++) {
-    el.addEventListener(events[i], callback);
-  }
-}
-
-/**
- *
- * @param settings
- * @returns {*[]}
- */
-export const prepareArrayValues = settings => {
-  let { values, step } = settings,
-      range  = values.max - values.min,
-      result = [];
-
-  if (!step) {
-    return [values.min, values.max];
-  }
-
-  for (let i = 0; i <= range / step; i++) {
-    const value = values.min + i * step;
-    result.push(Number(value.toFixed(4)));
-  }
-
-  if (!result.includes(values.max)) {
-    result.push(values.max);
-  }
-
-  return result;
-}
-
-/**
- *
- * @param settings
- * @returns {null|boolean}
- */
-export const checkInitial = settings => {
-  const { set, values, range } = settings;
-
-  if (!set || set.length < 1 || values.indexOf(set[0]) < 0) {
-    return null;
-  }
-
-  if (range && (set.length < 2 || values.indexOf(set[1]) < 0)) {
-    return null;
-  }
-
-  return true;
-}
-
-/**
- *
- * @param ticksCount
- * @param values
- * @returns {number[]}
- */
-export const calcScale = (ticksCount, values) => {
-  if (!isNaN(ticksCount) && ticksCount < values.length) {
-    let start  = values[0],
-        end    = values[values.length - 1];
-        values = Array.from({length: ticksCount + 1}, (_, i) => roundValue(start + (end - start) * i / ticksCount));
-  }
-  return values;
-}
+export const roundToStep = (value, step) => {
+  return parseFloat(parseFloat(value).toFixed(step % 1 === 0 ? 0 : step.toString().split('.')[1].length));
+};
