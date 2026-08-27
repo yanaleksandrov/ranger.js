@@ -1,4 +1,4 @@
-import { createElement } from './helpers.js';
+import { createElement, NAVIGATION_KEYS, formatDisplayValue } from './helpers.js';
 
 /**
  * Create the floating value label(s) above the slider handle(s).
@@ -8,12 +8,16 @@ import { createElement } from './helpers.js';
  */
 export const createLabel = (instance) => {
   const label = createElement('div', instance.classes.label);
+  // Purely a visual duplicate of the value already exposed via the slider's
+  // own aria-valuenow/aria-valuetext — hide it from assistive tech so it
+  // isn't announced twice.
+  label.setAttribute('aria-hidden', 'true');
 
-  instance.labelFrom = label.appendChild(createElement('div', instance.classes.labelTick));
+  instance.labelFrom = label.appendChild(createElement('div', instance.classes.labelItem));
   instance.fromSlider.addEventListener('input', () => calcPositions(instance));
 
   if (instance.isRange) {
-    instance.labelTo = label.appendChild(createElement('div', instance.classes.labelTick));
+    instance.labelTo = label.appendChild(createElement('div', instance.classes.labelItem));
     instance.toSlider.addEventListener('input', () => calcPositions(instance));
   }
 
@@ -27,22 +31,18 @@ export const createLabel = (instance) => {
   return label;
 };
 
-const NAVIGATION_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
-
-// Keeps the label hidden except while a handle is actively being dragged or
-// nudged via keyboard. Uses `display`, not `visibility` — the collision-merge
-// logic above sets labelTo's own `visibility` directly, and a descendant's
-// explicit `visibility: visible` overrides an ancestor's `hidden`, which
-// `display: none` doesn't allow.
+// Fades the label out except while a handle is actively being dragged or
+// nudged via keyboard (see .ranger-label.is-idle in core.scss for the
+// opacity transition — it's what makes this animate instead of snapping).
 const bindDragVisibility = (instance, label) => {
-  label.style.display = 'none';
+  label.classList.add('is-idle');
 
   const show = () => {
-    label.style.display = '';
+    label.classList.remove('is-idle');
     calcPositions(instance);
   };
   const hide = () => {
-    label.style.display = 'none';
+    label.classList.add('is-idle');
   };
 
   [instance.fromSlider, instance.toSlider].filter(Boolean).forEach((slider) => {
@@ -55,12 +55,12 @@ const bindDragVisibility = (instance, label) => {
 };
 
 const calcPositions = (instance) => {
-  const { fromSlider, toSlider, labelFrom, labelTo, labelPrefix, labelSuffix, format } = instance;
-  const formatValue = (value) => format ? format(Number(value)) : `${labelPrefix}${value}${labelSuffix}`;
+  const { fromSlider, toSlider, labelFrom, labelTo } = instance;
+  const formatValue = (value) => formatDisplayValue(instance, value);
 
   const setLabelStyle = (label, value, percent) => {
     label.innerText = formatValue(value);
-    label.style.left = `calc(${percent}% - ${label.offsetWidth / 2}px)`;
+    label.style.insetInlineStart = `calc(${percent}% - ${label.offsetWidth / 2}px)`;
   };
 
   const percentFrom = calculatePercent(+fromSlider.min, +fromSlider.max, +fromSlider.value);
@@ -73,14 +73,18 @@ const calcPositions = (instance) => {
   const percentTo = calculatePercent(+toSlider.min, +toSlider.max, +toSlider.value);
   setLabelStyle(labelTo, toSlider.value, percentTo);
 
-  const distanceX = labelTo.getBoundingClientRect().left - labelFrom.getBoundingClientRect().right;
+  // Gap between whichever edges face each other — direction-agnostic, so it
+  // still measures the real gap when RTL puts labelTo physically to the left.
+  const fromRect = labelFrom.getBoundingClientRect();
+  const toRect = labelTo.getBoundingClientRect();
+  const distanceX = Math.max(fromRect.left, toRect.left) - Math.min(fromRect.right, toRect.right);
 
   if (distanceX < 10) {
     labelFrom.innerText = fromSlider.value === toSlider.value
       ? formatValue(fromSlider.value)
       : `${formatValue(fromSlider.value)} – ${formatValue(toSlider.value)}`;
 
-    labelFrom.style.left = `calc(${percentFrom}% + ${(percentTo - percentFrom) / 2}% - ${labelFrom.offsetWidth / 2}px)`;
+    labelFrom.style.insetInlineStart = `calc(${percentFrom}% + ${(percentTo - percentFrom) / 2}% - ${labelFrom.offsetWidth / 2}px)`;
     labelTo.style.visibility = 'hidden';
   } else {
     labelTo.style.visibility = 'visible';

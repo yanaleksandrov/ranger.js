@@ -1,16 +1,17 @@
 import { createScale } from './scripts/scale';
 import { createLabel } from './scripts/label';
-import { roundToStep } from './scripts/helpers';
+import { roundToStep, NAVIGATION_KEYS, formatDisplayValue } from './scripts/helpers';
 
 const DEFAULTS = {
   classes: {
     container: 'ranger',
     fill: 'ranger-fill',
+    inputTo: 'ranger-input--to',
     scale: 'ranger-scale',
     scaleTick: 'ranger-scale-tick',
-    scaleTickMinor: 'ranger-scale-tick ranger-scale-tick--minor',
+    scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor',
     label: 'ranger-label',
-    labelTick: 'ranger-label-item',
+    labelItem: 'ranger-label-item',
   },
 
   scaleTickPrefix: '',
@@ -31,6 +32,14 @@ const DEFAULTS = {
   labelOnDragOnly: false,
 
   disabled: false,
+
+  // CSS background (typically a linear-gradient) painted on the fill,
+  // replacing the plain accentColor — e.g. green→yellow→red for a
+  // risk/temperature slider. Pinned to absolute positions along the whole
+  // min–max range (not stretched to the fill's own, constantly changing,
+  // width), so a given point on the gradient always represents the same
+  // value, however far the fill currently reaches.
+  fillGradient: null,
 
   // Array of display values (labels, dates, price tiers, ...) — the slider
   // becomes an index picker over it (min/max/step are derived automatically).
@@ -55,6 +64,15 @@ const DEFAULTS = {
   // Optional external <input> elements kept in sync with the slider(s).
   fromInput: null,
   toInput: null,
+
+  // Callbacks — (value, slider) for a single handle, or ([from, to], slider)
+  // in range mode; `slider` is the handle (or, for a whole-range drag, the
+  // fill element) that triggered the call.
+  onStart: null, // fired when a handle drag (pointer or keyboard) begins
+  onChange: null, // fired on every resolved value change
+  onEnd: null, // fired when a handle drag (pointer or keyboard) ends
+  onFocus: null, // fired when a handle gains focus
+  onBlur: null, // fired when a handle loses focus
 };
 
 export default class Ranger {
@@ -88,6 +106,14 @@ export default class Ranger {
     return this.toSlider !== null;
   }
 
+  // Whether the slider flows right-to-left, inherited via CSS from the
+  // wrapper's ancestors (e.g. a `dir="rtl"` container or `<html dir="rtl">`)
+  // — drives positionToValue, the fill's background-position, and the
+  // whole-range drag direction.
+  get isRTL() {
+    return getComputedStyle(this.wrapper).direction === 'rtl';
+  }
+
   initialize() {
     if (this.values) {
       this.fromSlider.min = 0;
@@ -111,16 +137,20 @@ export default class Ranger {
 
     this.fill = wrapper.appendChild(document.createElement('div'));
     this.fill.className = this.classes.fill;
+    // Purely a visual duplicate of the value already exposed via the
+    // slider's own aria-valuenow/aria-valuetext — hide it from assistive
+    // tech so it isn't announced twice.
+    this.fill.setAttribute('aria-hidden', 'true');
 
     if (this.fromSlider.hasAttribute('data-max-value')) {
       this.toSlider = this.fromSlider.cloneNode(false);
       this.toSlider.removeAttribute('data-max-value');
       this.toSlider.removeAttribute('id');
-      this.toSlider.classList.add('ranger-input--to');
+      this.toSlider.className += ` ${this.classes.inputTo}`;
       this.toSlider.value = Math.max(Number(this.fromSlider.value), this.parseMaxValue());
 
       wrapper.appendChild(this.toSlider);
-      this.setToggleAccessible(this.toSlider);
+      this.updateHandleStackOrder(this.toSlider);
     }
 
     if (this.disabled) {
@@ -139,6 +169,13 @@ export default class Ranger {
 
     this.fillSlider();
     this.addListeners();
+
+    // fillGradient positions itself in pixels (see fillSlider), which goes
+    // stale if the slider's own rendered width changes without a value
+    // change alongside it.
+    if (this.fillGradient) {
+      new ResizeObserver(() => this.fillSlider()).observe(this.wrapper);
+    }
 
     if (this.labelIsVisible) {
       this.label = createLabel(this);
@@ -188,6 +225,47 @@ export default class Ranger {
         });
       }
     });
+
+    if (this.onStart || this.onEnd || this.onFocus || this.onBlur) {
+      this.bindCallbackListeners();
+    }
+  }
+
+  // Wires onStart/onEnd (a pointer or keyboard-nudge drag, per handle) and
+  // onFocus/onBlur. onChange is triggered separately, from controlFromSlider/
+  // controlToSlider, since every value change already funnels through there.
+  bindCallbackListeners() {
+    [this.fromSlider, this.toSlider].filter(Boolean).forEach((slider) => {
+      slider.addEventListener('focus', () => this.onFocus?.(Number(slider.value), slider));
+      slider.addEventListener('blur', () => this.onBlur?.(Number(slider.value), slider));
+
+      slider.addEventListener('pointerdown', () => this.startDrag(slider));
+      slider.addEventListener('keydown', (event) => NAVIGATION_KEYS.includes(event.key) && this.startDrag(slider));
+      slider.addEventListener('keyup', (event) => NAVIGATION_KEYS.includes(event.key) && this.endDrag(slider));
+    });
+
+    document.addEventListener('pointerup', () => this.activeDragSlider && this.endDrag(this.activeDragSlider));
+  }
+
+  startDrag(slider) {
+    this.activeDragSlider = slider;
+    this.onStart?.(Number(slider.value), slider);
+  }
+
+  endDrag(slider) {
+    this.activeDragSlider = null;
+    this.onEnd?.(Number(slider.value), slider);
+  }
+
+  // Reports the changed handle's resolved value — [from, to] in range mode,
+  // the plain value otherwise — to onChange, along with the handle itself.
+  emitChange(slider) {
+    if (!this.onChange) {
+      return;
+    }
+
+    const value = this.isRange ? [Number(this.fromSlider.value), Number(this.toSlider.value)] : Number(slider.value);
+    this.onChange(value, slider);
   }
 
   controlFromSlider() {
@@ -198,6 +276,7 @@ export default class Ranger {
       if (this.fromInput) {
         this.fromInput.value = this.fromSlider.value;
       }
+      this.emitChange(this.fromSlider);
       return;
     }
 
@@ -211,6 +290,7 @@ export default class Ranger {
     if (this.fromInput) {
       this.fromInput.value = value;
     }
+    this.emitChange(this.fromSlider);
   }
 
   controlToSlider() {
@@ -220,11 +300,12 @@ export default class Ranger {
 
     this.toSlider.value = value;
     this.fillSlider();
-    this.setToggleAccessible(this.toSlider);
+    this.updateHandleStackOrder(this.toSlider);
 
     if (this.toInput) {
       this.toInput.value = value;
     }
+    this.emitChange(this.toSlider);
   }
 
   getParsed(currentFrom, currentTo) {
@@ -251,8 +332,9 @@ export default class Ranger {
     const { left, width } = this.wrapper.getBoundingClientRect();
     const min = Number(this.fromSlider.min);
     const max = Number(this.fromSlider.max);
+    const ratio = (clientX - left) / width;
 
-    return min + ((clientX - left) / width) * (max - min);
+    return min + (this.isRTL ? 1 - ratio : ratio) * (max - min);
   }
 
   resetSlider(slider, defaultValue) {
@@ -307,9 +389,11 @@ export default class Ranger {
     const trackWidth = this.wrapper.getBoundingClientRect().width;
 
     this.fill.setPointerCapture(event.pointerId);
+    this.onStart?.([startFrom, startTo], this.fill);
 
     const onMove = (moveEvent) => {
-      const delta = ((moveEvent.clientX - startX) / trackWidth) * (max - min);
+      const rawDelta = ((moveEvent.clientX - startX) / trackWidth) * (max - min);
+      const delta = this.isRTL ? -rawDelta : rawDelta;
       const clampedDelta = Math.max(min - startFrom, Math.min(max - startTo, delta));
 
       this.fromSlider.value = roundToStep(startFrom + clampedDelta, this.fromSlider.step);
@@ -321,6 +405,7 @@ export default class Ranger {
     const onUp = () => {
       this.fill.removeEventListener('pointermove', onMove);
       this.fill.removeEventListener('pointerup', onUp);
+      this.onEnd?.([Number(this.fromSlider.value), Number(this.toSlider.value)], this.fill);
     };
 
     this.fill.addEventListener('pointermove', onMove);
@@ -341,19 +426,50 @@ export default class Ranger {
 
     this.accentColor ||= getComputedStyle(fromSlider).accentColor;
     fill.style.backgroundColor = this.accentColor;
-    fill.style.left = `${fromPercent}%`;
+    fill.style.setProperty('--ranger-fill-gradient', this.fillGradient || 'none');
+    // Logical (not left/right) so the fill mirrors correctly under RTL.
+    fill.style.insetInlineStart = `${fromPercent}%`;
     fill.style.width = `${toPercent - fromPercent}%`;
+
+    // A gradient background otherwise stretches to the fill's OWN (constantly
+    // changing) width, so its last color always ends up at the current value
+    // regardless of where that actually falls. Instead, size it to the full
+    // track and shift it by the fill's own offset, so the fill acts as a
+    // window into a gradient whose colors stay pinned to absolute values.
+    // The offset is anchored to whichever physical edge is the RTL/LTR
+    // "start" edge, matching insetInlineStart above.
+    if (this.fillGradient) {
+      const trackWidth = this.wrapper.getBoundingClientRect().width;
+      const offset = (fromPercent / 100) * trackWidth;
+      fill.style.backgroundSize = `${trackWidth}px 100%`;
+      fill.style.backgroundPosition = this.isRTL ? `right -${offset}px top 0` : `left -${offset}px top 0`;
+    } else {
+      fill.style.backgroundSize = '';
+      fill.style.backgroundPosition = '';
+    }
 
     // Handles exactly overlapping would otherwise fully hide one behind the
     // other; see .is-overlapping in core.scss, which splits their hit-areas.
     if (toSlider) {
       this.wrapper.classList.toggle('is-overlapping', Number(fromSlider.value) === Number(toSlider.value));
     }
+
+    this.updateAriaValueText(fromSlider);
+    if (toSlider) {
+      this.updateAriaValueText(toSlider);
+    }
+  }
+
+  // Reflects the formatted display value via aria-valuetext, so assistive
+  // tech announces e.g. a mapped `values` entry, a `logScale` value, or a
+  // label prefix/suffix, instead of just the underlying raw value.
+  updateAriaValueText(slider) {
+    slider.setAttribute('aria-valuetext', formatDisplayValue(this, slider.value));
   }
 
   // Keeps whichever handle is more likely to need grabbing above the other;
   // both stay above the fill layer regardless (see core.scss z-indexes).
-  setToggleAccessible(target) {
+  updateHandleStackOrder(target) {
     if (!this.toSlider) {
       return;
     }

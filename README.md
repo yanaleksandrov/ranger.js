@@ -1,31 +1,31 @@
-## :boom: About
+## :boom: О библиотеке
 
-This is a modern lightweight (~7kB) and zero dependencies JS library to create input range sliders with one or two drag handles.
+Современная лёгкая (~7 КБ) JS-библиотека без зависимостей для создания слайдеров диапазона с одной или двумя ручками перетаскивания.
 
 ![alt text](https://github.com/yanaleksandrov/ranger.js/blob/main/img.png)
 
-## :+1: Features
+## :+1: Возможности
 
-- High CSS customizable
-- Touch accessible
-- Supports negative & fractional values
-- Zero dependencies
-- Supported by all major browsers
+- Глубокая настройка через CSS
+- Поддержка сенсорного управления (touch)
+- Поддержка отрицательных и дробных значений
+- Отсутствие зависимостей
+- Поддержка всеми основными браузерами
 
-## :sparkles: Usage
+## :sparkles: Использование
 
-Add an `<input type="range">`. To get a **range** slider (two handles), add a `data-max-value`
-attribute holding the starting value of the upper handle — otherwise you get a single handle.
+Добавьте `<input type="range">`. Чтобы получить слайдер **диапазона** (две ручки), добавьте атрибут
+`data-max-value` с начальным значением верхней ручки — иначе будет одна ручка.
 
 ```html
-<!-- single handle -->
+<!-- одна ручка -->
 <input class="ranger-input" type="range" min="0" max="100" step="1" value="40" />
 
-<!-- two handles -->
+<!-- две ручки -->
 <input class="ranger-input" type="range" min="0" max="100" step="1" value="20" data-max-value="80" />
 ```
 
-Init the library on each slider (`target` can be a CSS selector or the element itself):
+Инициализируйте библиотеку на каждом слайдере (`target` может быть CSS-селектором или самим элементом):
 
 ```js
 document.querySelectorAll('.ranger-input').forEach((slider) => {
@@ -43,52 +43,78 @@ document.querySelectorAll('.ranger-input').forEach((slider) => {
 
 ## :sparkles: API
 
-| Option            | Type              | Default                                                                          | Description                                                                             |
+| Опция              | Тип               | По умолчанию                                                                     | Описание                                                                             |
 |--------------------|-------------------|-----------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
-| `classes`          | object            | `{ container: 'ranger', fill: 'ranger-fill', scale: 'ranger-scale', scaleTick: 'ranger-scale-tick', scaleTickMinor: 'ranger-scale-tick ranger-scale-tick--minor', label: 'ranger-label', labelTick: 'ranger-label-item' }` | Class names used for the generated wrapper/fill/scale/label elements. |
-| `scaleTicksCount`  | number            | `10`                                                                             | Number of labeled (major) ticks in the scale line. Set to `0` to hide the scale entirely. |
-| `scaleMinorTicksCount` | number        | `0`                                                                              | Unlabeled minor ticks inserted between each pair of major ticks, evenly splitting that gap. |
-| `scaleAnimatedTicksCount` | number     | `1`                                                                              | How many ticks on *each* side of a handle get a nonzero `--ranger-scale` (below), tapering to 0 past that distance. One shared radius, applied symmetrically. |
-| `scaleTickPrefix`  | string            | `''`                                                                             | Content shown before each tick's value.                                                   |
-| `scaleTickSuffix`  | string            | `''`                                                                             | Content shown after each tick's value.                                                    |
-| `labelIsVisible`   | boolean           | `true`                                                                           | Show/hide the floating value label(s) above the handle(s).                                |
-| `labelPrefix`      | string            | `''`                                                                             | Text shown before each label's value.                                                     |
-| `labelSuffix`      | string            | `''`                                                                             | Text shown after each label's value.                                                      |
-| `labelOnDragOnly`  | boolean           | `false`                                                                          | Keep the label hidden except while a handle is actively being dragged or nudged via keyboard. |
-| `disabled`         | boolean           | `false`                                                                          | Disable dragging on the slider.                                                           |
-| `fromInput`        | HTMLInputElement  | `null`                                                                           | External `<input>` kept in sync with the lower/only handle.                               |
-| `toInput`          | HTMLInputElement  | `null`                                                                           | External `<input>` kept in sync with the upper handle (range mode only).                  |
-| `values`           | array              | `null`                                                                          | Display values (labels, dates, price tiers, ...) to pick an index from — `min`/`max`/`step` are derived automatically, and `scaleTicksCount` defaults to one tick per value (both only unless explicitly overridden). Sets a default `format` unless one is given. |
-| `format`           | `(value) => string` | `null`                                                                        | Overrides `labelPrefix`/`labelSuffix` and `scaleTickPrefix`/`scaleTickSuffix` everywhere a value is shown. |
-| `logScale`         | boolean            | `false`                                                                         | Maps the displayed/formatted value exponentially between `min` and `max` (which must be `> 0`); dragging stays linear. Sets a default `format` unless one is given. |
-| `snapPoints`       | number[]           | `[]`                                                                            | Values that magnetically pull a handle in once dragged within `snapThreshold` of them. |
-| `snapThreshold`    | number             | `0.02`                                                                          | Snap pull radius, as a fraction of the `min`–`max` range.                                 |
-| `fineStep`         | number             | `null`                                                                          | Step used for Shift+Arrow nudges; defaults to `step / 10`.                                |
-| `minGap`           | number             | `0`                                                                             | Minimum distance the two handles must keep apart (range mode only).                       |
+| `classes`          | object            | `{ container: 'ranger', fill: 'ranger-fill', inputTo: 'ranger-input--to', scale: 'ranger-scale', scaleTick: 'ranger-scale-tick', scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor', label: 'ranger-label', labelItem: 'ranger-label-item' }` | Имена классов для каждого элемента, создаваемого Ranger. |
+| `scaleTicksCount`  | number            | `10`                                                                             | Количество подписанных (крупных) делений шкалы. `0` — полностью скрыть шкалу. |
+| `scaleMinorTicksCount` | number        | `0`                                                                              | Непомеченные мелкие деления между каждой парой крупных, равномерно делящие промежуток. |
+| `scaleAnimatedTicksCount` | number     | `1`                                                                              | Сколько делений *с каждой* стороны от ручки получают ненулевое `--ranger-scale` (см. ниже), угасающее к 0 за пределами этого расстояния. Один общий радиус, применяется симметрично. |
+| `scaleTickPrefix`  | string            | `''`                                                                             | Текст перед значением каждого деления.                                                   |
+| `scaleTickSuffix`  | string            | `''`                                                                             | Текст после значения каждого деления.                                                    |
+| `labelIsVisible`   | boolean           | `true`                                                                           | Показать/скрыть плавающую подпись(и) значения над ручкой(ами).                                |
+| `labelPrefix`      | string            | `''`                                                                             | Текст перед значением подписи.                                                     |
+| `labelSuffix`      | string            | `''`                                                                             | Текст после значения подписи.                                                     |
+| `labelOnDragOnly`  | boolean           | `false`                                                                          | Показывать подпись, только пока ручка активно перетаскивается или перемещается клавиатурой. |
+| `disabled`         | boolean           | `false`                                                                          | Отключить перетаскивание слайдера.                                                           |
+| `fromInput`        | HTMLInputElement  | `null`                                                                           | Внешний `<input>`, синхронизируемый с нижней/единственной ручкой.                               |
+| `toInput`          | HTMLInputElement  | `null`                                                                           | Внешний `<input>`, синхронизируемый с верхней ручкой (только режим диапазона).                  |
+| `values`           | array              | `null`                                                                          | Отображаемые значения (подписи, даты, ценовые уровни...) для выбора по индексу — `min`/`max`/`step` вычисляются автоматически, а `scaleTicksCount` по умолчанию равен одному делению на значение (оба — если явно не переопределены). Задаёт `format` по умолчанию, если он не указан. |
+| `format`           | `(value) => string` | `null`                                                                        | Переопределяет `labelPrefix`/`labelSuffix` и `scaleTickPrefix`/`scaleTickSuffix` везде, где отображается значение. |
+| `logScale`         | boolean            | `false`                                                                         | Отображает/форматирует значение экспоненциально между `min` и `max` (должно быть `> 0`); перетаскивание остаётся линейным. Задаёт `format` по умолчанию, если он не указан. |
+| `snapPoints`       | number[]           | `[]`                                                                            | Значения, магнитно притягивающие ручку при приближении в пределах `snapThreshold`. |
+| `snapThreshold`    | number             | `0.02`                                                                          | Радиус притяжения как доля диапазона `min`–`max`.                                 |
+| `fineStep`         | number             | `null`                                                                          | Шаг для точной навигации Shift+стрелка; по умолчанию `step / 10`.                                |
+| `minGap`           | number             | `0`                                                                             | Минимальное расстояние между двумя ручками (только режим диапазона).                       |
+| `fillGradient`     | string             | `null`                                                                          | CSS `background` (обычно `linear-gradient`), закрашивающий заливку вместо обычного `accent-color` — например, зелёный→жёлтый→красный для индикатора риска/температуры. Растягивается по собственному прямоугольнику заливки, поэтому в режиме диапазона охватывает выбранный поддиапазон, а не фиксированную позицию на всей дорожке. |
 
-A few interactions work automatically, with no option to turn on:
+## :bell: Callback
 
-- **Double-click/tap a handle** to reset it to the value it started at.
-- **Drag the filled bar itself** (range mode only) to slide both handles together, keeping their
-  distance fixed — like moving a whole date-range window instead of resizing it.
-- **Hold Shift while pressing an arrow key** on a focused handle to nudge it by `fineStep` instead of
-  the normal `step`. A plain arrow press is left to the browser's native Home/End/arrow handling.
+| Callback    | Когда вызывается     |
+|-------------|-----------------------|
+| `onStart`   | начало drag            |
+| `onChange`  | изменение значения     |
+| `onEnd`     | окончание drag         |
+| `onFocus`   | получение фокуса       |
+| `onBlur`    | потеря фокуса          |
 
-Every tick — major or minor — also carries a live `--ranger-scale` CSS custom property (`0`–`1`, how
-close the nearest handle currently is), so plain CSS can animate it. `.ranger-scale-tick--animated` ships
-with the library as a ready-made example of this — add it via `classes.scaleTick`/`classes.scaleTickMinor`
-to grow a tick's height and fade its opacity in as a handle passes by:
+Каждый колбэк получает `(value, slider)`: `value` — это текущее значение (или `[from, to]` в режиме
+диапазона), а `slider` — конкретная ручка (`<input>`), вызвавшая событие. При перетаскивании самой
+заливки (см. ниже) `slider` — это элемент заливки, а `value` — пара `[from, to]`.
+
+```js
+new Ranger('#price', {
+  onStart: (value, slider) => console.log('начало:', value),
+  onChange: (value, slider) => console.log('изменение:', value),
+  onEnd: (value, slider) => console.log('окончание:', value),
+  onFocus: (value, slider) => console.log('фокус:', value),
+  onBlur: (value, slider) => console.log('потеря фокуса:', value),
+});
+```
+
+Некоторые взаимодействия работают автоматически, без отдельной опции для включения:
+
+- **Двойной клик/тап по ручке** возвращает её к значению, с которого она начиналась.
+- **Перетаскивание самой заливки** (только режим диапазона) сдвигает обе ручки вместе, сохраняя
+  расстояние между ними — как перемещение целого окна диапазона дат вместо изменения его размера.
+- **Удержание Shift при нажатии стрелки** на сфокусированной ручке сдвигает её на `fineStep` вместо
+  обычного `step`. Обычное нажатие стрелки оставлено нативной обработке браузера (Home/End/стрелки).
+
+Каждое деление — крупное или мелкое — также несёт живое CSS-свойство `--ranger-scale` (`0`–`1`,
+насколько близко сейчас находится ближайшая ручка), чтобы обычный CSS мог его анимировать.
+`.ranger-scale-tick--animated` поставляется с библиотекой как готовый пример этого — добавьте его через
+`classes.scaleTick`/`classes.scaleMinorTick`, чтобы деление увеличивалось в высоту и проявлялось по
+непрозрачности при прохождении ручки мимо:
 
 ```js
 new Ranger(slider, {
   classes: {
     scaleTick: 'ranger-scale-tick ranger-scale-tick--animated',
-    scaleTickMinor: 'ranger-scale-tick ranger-scale-tick--minor ranger-scale-tick--animated',
+    scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor ranger-scale-tick--animated',
   },
 });
 ```
 
-Or write your own reaction to `--ranger-scale` instead:
+Либо напишите собственную реакцию на `--ranger-scale`:
 
 ```css
 .ranger-scale-tick::before {
@@ -97,14 +123,46 @@ Or write your own reaction to `--ranger-scale` instead:
 }
 ```
 
-Major-tick labels also thin themselves out automatically — whenever the slider's own rendered width
-changes (tracked via `ResizeObserver`, not just on page load), the widest label is measured and every
-Nth one is hidden, just enough that none overlap.
+Подписи крупных делений также автоматически прореживаются — при каждом изменении отображаемой ширины
+слайдера (отслеживается через `ResizeObserver`, а не только при загрузке страницы) измеряется самая
+широкая подпись, и скрывается каждая N-я, ровно настолько, чтобы ни одна не накладывалась на другую.
 
-## :hammer_and_wrench: Development
+## :wheelchair: Доступность
+
+Каждая ручка — это обычный нативный `<input type="range">`, поэтому она изначально фокусируется по
+Tab, читается скринридерами как ползунок (`role="slider"`) и управляется стрелками/Home/End/PageUp/
+PageDown без какого-либо кода со стороны Ranger. Библиотека дополняет это следующим:
+
+- **`aria-valuetext`** — обновляется на каждое изменение значения и озвучивает то же самое, что видно
+  на экране (сопоставленный элемент `values`, значение `logScale`, `format`, `labelPrefix`/`labelSuffix`),
+  а не «сырое» число или индекс, которое иначе прочитал бы скринридер.
+- **`aria-hidden="true"`** — на заливке, шкале делений и всплывающей подписи: это чисто визуальные
+  дубликаты значения, уже доступного через саму ручку, и без этого атрибута скринридер озвучивал бы
+  каждое значение по два-три раза.
+- **Видимый фокус** — `:focus-visible` рисует чёткую обводку вокруг ручки для клавиатурной навигации,
+  так как кастомные `::-webkit-slider-thumb`/`::-moz-range-thumb` не всегда получают стандартную обводку
+  фокуса браузера.
+
+## :arrows_counterclockwise: Поддержка RTL
+
+Направление наследуется через CSS от `dir="rtl"` (на самом слайдере или любом родителе) — отдельная
+опция не нужна. Как только направление меняется, Ranger автоматически отражает:
+
+- заливку и деления шкалы (через логические CSS-свойства `inset-inline-*`, а не `left`/`right`);
+- позицию всплывающей подписи;
+- клик по дорожке (`positionToValue`) и перетаскивание всего диапазона за заливку — оба учитывают
+  направление, чтобы «вправо» и «влево» соответствовали ожидаемому визуальному смыслу.
+
+```html
+<div dir="rtl">
+  <input class="ranger-input" type="range" min="0" max="100" step="1" value="30" />
+</div>
+```
+
+## :hammer_and_wrench: Разработка
 
 ```bash
 npm install
-npm start    # dev server with live demos at src/view/index.html
-npm run build # production bundle in dist/
+npm start    # dev-сервер с демо на src/view/index.html
+npm run build # production-сборка в dist/
 ```

@@ -32,3 +32,20 @@ export const roundToStep = (value, step) => {
 
   return parseFloat(Number(value).toFixed(decimals));
 };
+
+// Keys treated as an interactive nudge — used to detect keyboard-driven
+// "dragging" (label visibility, onStart/onEnd callbacks) the same way a
+// pointerdown/pointerup pair does for mouse/touch.
+export const NAVIGATION_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
+
+/**
+ * Format a raw slider value the same way everywhere it's shown to a human —
+ * the floating label, aria-valuetext, and anywhere else that needs it.
+ *
+ * @param {object} instance
+ * @param {number|string} value
+ * @returns {string}
+ */
+export const formatDisplayValue = (instance, value) => (
+  instance.format ? String(instance.format(Number(value))) : `${instance.labelPrefix}${value}${instance.labelSuffix}`
+);

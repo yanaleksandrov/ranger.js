@@ -57,9 +57,13 @@
 	// either handle, regardless of which handle's z-index is on top.
 	&-fill {
 		background-color: #0b6dea;
+		// Set via the fillGradient option (e.g. a green→yellow→red
+		// linear-gradient for a risk/temperature slider) — 'none' by
+		// default, so the plain background-color above shows through.
+		background-image: var(--ranger-fill-gradient, none);
 		border-radius: 3px;
 		height: 100%;
-		left: 0;
+		inset-inline-start: 0;
 		pointer-events: none;
 		position: absolute;
 		top: 0;
@@ -80,7 +84,7 @@
 		background: transparent;
 		border-radius: 3px;
 		height: 100%;
-		left: 0;
+		inset-inline-start: 0;
 		margin: 0;
 		padding: 0;
 		pointer-events: none;
@@ -99,6 +103,18 @@
 			-moz-appearance: none;
 			appearance: none;
 			@include ranger-thumb;
+		}
+
+		// Custom-styled thumbs don't reliably pick up the browser's default
+		// focus ring, so draw an explicit one for keyboard users.
+		&:focus-visible::-webkit-slider-thumb {
+			outline: 2px solid #0b6dea;
+			outline-offset: 2px;
+		}
+
+		&:focus-visible::-moz-range-thumb {
+			outline: 2px solid #0b6dea;
+			outline-offset: 2px;
 		}
 
 		// Firefox paints its track/progress as separate pseudo-elements,
@@ -125,10 +141,20 @@
 
 	&-label {
 		position: absolute;
-		left: 0;
-		right: 0;
+		inset-inline: 0;
 		top: -2rem;
 		margin-inline: 0.625rem;
+		transition: opacity 0.2s ease-out;
+
+		// labelOnDragOnly fades the label via opacity rather than display/
+		// visibility — those can't transition, and visibility on this
+		// ancestor wouldn't reliably hide labelTo either, since its own
+		// explicit visibility toggle (the merge-on-collision logic below)
+		// overrides an ancestor's `hidden`.
+		&.is-idle {
+			opacity: 0;
+			pointer-events: none;
+		}
 
 		&-item {
 			position: absolute;
@@ -139,7 +165,7 @@
 	&-scale {
 		display: flex;
 		justify-content: space-between;
-		left: 0;
+		inset-inline-start: 0;
 		position: absolute;
 		top: 8px;
 		white-space: nowrap;

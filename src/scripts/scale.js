@@ -15,12 +15,17 @@ import { createElement, roundToStep } from './helpers';
  */
 export const createScale = (instance) => {
   const scale = createElement('div', instance.classes.scale);
+  // Purely a visual duplicate of the value already exposed via the slider's
+  // own aria-valuenow/aria-valuetext — hide it from assistive tech so it
+  // isn't announced twice.
+  scale.setAttribute('aria-hidden', 'true');
+
   const minorStep = instance.scaleMinorTicksCount + 1;
   const segments = instance.scaleTicksCount * minorStep;
 
   instance.scaleTicks = calcTicks(instance, segments).map((value, index) => {
     const isMajor = index % minorStep === 0;
-    const tick = createElement('span', isMajor ? instance.classes.scaleTick : instance.classes.scaleTickMinor);
+    const tick = createElement('span', isMajor ? instance.classes.scaleTick : instance.classes.scaleMinorTick);
     let label = null;
 
     if (isMajor) {
@@ -82,8 +87,10 @@ const arrangeScale = (instance) => {
 
   // Measured directly from the first/last tick's real position, rather than
   // the wrapper's own width, which ignores .ranger-scale's own padding and
-  // so overestimates the space actually available for labels.
-  const trackWidth = majors[lastIndex].tick.getBoundingClientRect().left - majors[0].tick.getBoundingClientRect().left;
+  // so overestimates the space actually available for labels. Math.abs
+  // keeps this correct under RTL too, where the flex order visually mirrors
+  // and the "last" (highest-value) tick ends up physically on the left.
+  const trackWidth = Math.abs(majors[lastIndex].tick.getBoundingClientRect().left - majors[0].tick.getBoundingClientRect().left);
   const maxLabelWidth = Math.max(...majors.map(({ label }) => label.offsetWidth));
   const minSkip = maxLabelWidth > 0 && trackWidth > 0 ? Math.ceil((maxLabelWidth * lastIndex) / trackWidth) : 1;
   const skip = findSkip(lastIndex, Math.max(1, minSkip));

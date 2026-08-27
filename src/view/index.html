@@ -136,6 +136,38 @@
     <input class="ranger-input" type="range" id="label-on-drag" min="0" max="100" step="1" value="50"/>
   </section>
 
+  <section>
+    <h2>18. Градиент заливки: цветовые зоны</h2>
+    <p><code>fillGradient</code> заменяет один сплошной <code>accent-color</code> CSS-градиентом —
+      здесь зелёный→жёлтый→красный на шкале риска. В диапазонном режиме градиент растягивается на
+      выбранный поддиапазон, а не на постоянную позицию по всей дорожке.</p>
+    <input class="ranger-input" type="range" id="risk" min="0" max="100" step="1" value="40"/>
+  </section>
+
+  <section>
+    <h2>19. Диапазон дат с ограничениями</h2>
+    <p><code>values</code> может содержать объекты <code>Date</code> — слайдер превращается в выбор
+      диапазона дат по индексу массива, а сам массив (30 дней начиная с 1 января 2026) задаёт нижнюю
+      и верхнюю границу доступных дат. <code>format</code> отображает дату в читаемом виде.</p>
+    <input class="ranger-input" type="range" id="date-range" value="5" data-max-value="20"/>
+  </section>
+
+  <section>
+    <h2>20. Callback-и: onStart, onChange, onEnd, onFocus, onBlur</h2>
+    <p>Потяните или сфокусируйте ползунок клавиатурой — каждое событие логируется ниже.</p>
+    <input class="ranger-input" type="range" id="callbacks" min="0" max="100" step="1" value="50"/>
+    <pre id="callbacks-log" style="max-height: 160px; overflow-y: auto;"></pre>
+  </section>
+
+  <section dir="rtl">
+    <h2>21. Поддержка RTL</h2>
+    <p>Тот же слайдер, но контейнер имеет <code>dir="rtl"</code> — шкала, заливка, всплывающая подпись
+      и перетаскивание (в т.ч. клик по дорожке и перетаскивание всего диапазона) отражаются автоматически,
+      без какой-либо отдельной настройки.</p>
+    <input class="ranger-input" type="range" id="rtl-single" min="0" max="100" step="1" value="30"/>
+    <input class="ranger-input" type="range" id="rtl-range" min="0" max="100" step="1" value="20" data-max-value="70"/>
+  </section>
+
   <script>
   document.addEventListener('DOMContentLoaded', function() {
     new Ranger('#single');
@@ -166,7 +198,7 @@
       scaleAnimatedTicksCount: 3,
       classes: {
         scaleTick: 'ranger-scale-tick ranger-scale-tick--animated',
-        scaleTickMinor: 'ranger-scale-tick ranger-scale-tick--minor ranger-scale-tick--animated',
+        scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor ranger-scale-tick--animated',
       },
     };
 
@@ -195,6 +227,42 @@
     new Ranger('#fine-step', { fineStep: 1 });
 
     new Ranger('#label-on-drag', { labelOnDragOnly: true });
+
+    new Ranger('#risk', { fillGradient: 'linear-gradient(to right, #22c55e, #eab308, #ef4444)' });
+
+    var dateValues = Array.from({ length: 30 }, function (_, i) {
+      var date = new Date(2026, 0, 1);
+      date.setDate(date.getDate() + i);
+      return date;
+    });
+
+    new Ranger('#date-range', {
+      values: dateValues,
+      // A custom `format` always receives the raw slider value (here, the
+      // index into `values`), never the mapped entry — so look the date up
+      // ourselves, the same way Ranger's own default `values` formatter does.
+      format: function (index) {
+        return dateValues[Math.round(index)].toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+      },
+    });
+
+    var callbacksLog = document.getElementById('callbacks-log');
+    var logEvent = function (name) {
+      return function (value) {
+        callbacksLog.textContent = name + ': ' + value + '\n' + callbacksLog.textContent;
+      };
+    };
+
+    new Ranger('#callbacks', {
+      onStart: logEvent('onStart'),
+      onChange: logEvent('onChange'),
+      onEnd: logEvent('onEnd'),
+      onFocus: logEvent('onFocus'),
+      onBlur: logEvent('onBlur'),
+    });
+
+    new Ranger('#rtl-single', { scaleTicksCount: 10 });
+    new Ranger('#rtl-range', { scaleTicksCount: 10 });
   });
   </script>
 
