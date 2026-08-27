@@ -67,6 +67,12 @@ module.exports = {
             'default',
             {
               discardComments: { removeAll: true },
+              // Must stay off: it merges rules with identical declarations
+              // by combining their selectors, which would fold our separate
+              // ::-webkit-slider-thumb / ::-moz-range-thumb rules into one
+              // comma list — browsers drop the whole rule when a selector
+              // list contains a vendor pseudo-element they don't recognize.
+              mergeRules: false,
             },
           ],
         },

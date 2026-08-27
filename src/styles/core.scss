@@ -1,85 +1,289 @@
+// Shared thumb look. Kept as a mixin (not @extend) so each vendor
+// pseudo-element still gets its own separate rule — Firefox and Chrome both
+// drop an entire selector list if it contains a pseudo-element they don't
+// recognize, so `::-webkit-slider-thumb, ::-moz-range-thumb { … }` can't
+// be combined into one rule.
+@mixin ranger-thumb {
+	cursor: pointer;
+	pointer-events: all;
+	// The box below is the real hit/drag target — `--ranger-thumb-icon-size`
+	// (default `auto`, i.e. the image's own intrinsic size) lets a skin paint
+	// a *smaller* visible mark inside a larger box, growing the tappable area
+	// without growing what's actually drawn. `isolation: isolate` wouldn't do
+	// this — it only affects stacking/blend-mode containment, never hit-testing;
+	// a pseudo-element's hit area is always exactly its own box.
+	background-position: center;
+	background-repeat: no-repeat;
+	background-color: var(--ranger-thumb-bg);
+	background-image: var(--ranger-thumb-icon);
+	background-size: var(--ranger-thumb-icon-size, auto);
+	border: 1px solid var(--ranger-thumb-border);
+	border-radius: var(--ranger-thumb-radius);
+	box-shadow: var(--ranger-thumb-shadow);
+	width: var(--ranger-thumb-width);
+	height: var(--ranger-thumb-height);
+}
+
+// Skin tokens — the default skin. Declared on :root so they reach both the
+// pre-init raw <input> and the post-init `.ranger` tree (custom properties
+// inherit through the whole DOM, wrapper or not).
+:root {
+	--ranger-height: 10px;
+	--ranger-radius: 3px;
+	--ranger-gap-top: 2.5rem;
+	--ranger-gap-bottom: 4rem;
+	--ranger-bg: #f1f1f1;
+	--ranger-accent: #0b6dea;
+	--ranger-thumb-width: 1.25rem;
+	--ranger-thumb-height: 1.25rem;
+	--ranger-thumb-radius: 4px;
+	--ranger-thumb-bg: #fff;
+	--ranger-thumb-hover-bg: #f7f7f7;
+	--ranger-thumb-border: #bbb;
+	--ranger-thumb-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath stroke='%23bbb' d='M4.5 2v8M7.5 2v8'/%3E%3C/svg%3E");
+	--ranger-thumb-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
+	--ranger-tick-color: #bdbdbd;
+	--ranger-tick-label-color: #333;
+	--ranger-mark-color: #f59e0b;
+}
+
+// "Coral" skin — a flatter, squared-off look (in the spirit of Ion.RangeSlider's
+// grey-and-coral skins): square corners throughout, a thin bar-shaped handle
+// instead of the default rounded square, no grip icon or drop shadow.
+// Activate with `data-skin="coral"` on `.ranger` itself or on any ancestor
+// (e.g. <html>, to skin every slider on the page at once). Being plain
+// custom-property overrides, an already-mounted slider re-skins live the
+// moment the attribute changes — no re-init needed. The one exception is the
+// fill's own color, which index.js reads once per value change
+// (`getComputedStyle(...).accentColor`, see fillSlider) rather than tracking
+// it continuously — call `.fillSlider()` again after switching the skin to
+// refresh already-rendered sliders immediately (see the demo's switcher).
+[data-skin="coral"] {
+	--ranger-height: 6px;
+	--ranger-radius: 0;
+	--ranger-bg: #e2e2e2;
+	--ranger-accent: #ff6f59;
+	--ranger-thumb-width: 1.25rem;
+	--ranger-thumb-height: 2rem;
+	--ranger-thumb-radius: 0;
+	--ranger-thumb-bg: transparent;
+	--ranger-thumb-hover-bg: transparent;
+	--ranger-thumb-border: transparent;
+	--ranger-thumb-icon-size: 4px 18px;
+	--ranger-thumb-icon: initial;
+	--ranger-thumb-shadow: none;
+	--ranger-tick-color: #bdbdbd;
+	--ranger-tick-label-color: #888;
+
+	.ranger-scale {
+		padding: 0;
+	}
+
+	.ranger-input {
+		&::-webkit-slider-thumb,
+		&::-webkit-slider-thumb:hover {
+			color: var(--ranger-accent);
+			mask: url("data:image/svg+xml,%3Csvg width='3' height='16' viewBox='0 0 3 16' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='3' height='16' fill='white'/%3E%3C/svg%3E") center / 3px 16px no-repeat;
+			background-color: currentColor;
+		}
+
+		&::-moz-range-thumb,
+		&::-moz-range-thumb:hover {
+			color: var(--ranger-accent);
+			mask: url("data:image/svg+xml,%3Csvg width='3' height='16' viewBox='0 0 3 16' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='3' height='16' fill='white'/%3E%3C/svg%3E") center / 3px 16px no-repeat;
+			background-color: currentColor;
+		}
+
+		&::-webkit-slider-runnable-track {
+			margin-inline: calc(var(--ranger-thumb-width) / 2 * -1);
+		}
+
+		&::-moz-range-track {
+			margin-inline: calc(var(--ranger-thumb-width) / 2 * -1);
+		}
+	}
+}
+
 .ranger {
-	display: flex;
+	background-color: var(--ranger-bg);
+	border-radius: var(--ranger-radius);
+	cursor: pointer;
+	height: var(--ranger-height);
+	margin-block: var(--ranger-gap-top) var(--ranger-gap-bottom);
 	position: relative;
-	flex-wrap: wrap;
+
+	&.is-disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	// When both handles land on the exact same value, they occupy the same
+	// pixel and whichever has the higher z-index swallows every click —
+	// leaving the other one permanently unreachable. Split the shared hit
+	// area in half instead, so each handle stays independently grabbable
+	// (kept as 4 separate rules for the same cross-vendor reason as above).
+	&.is-overlapping {
+		.ranger-input:not(.ranger-input--to)::-webkit-slider-thumb {
+			clip-path: inset(0 50% 0 0);
+		}
+
+		.ranger-input:not(.ranger-input--to)::-moz-range-thumb {
+			clip-path: inset(0 50% 0 0);
+		}
+
+		.ranger-input--to::-webkit-slider-thumb {
+			clip-path: inset(0 0 0 50%);
+		}
+
+		.ranger-input--to::-moz-range-thumb {
+			clip-path: inset(0 0 0 50%);
+		}
+	}
+
+	// Colored progress fill — a dedicated layer so it can never paint over
+	// either handle, regardless of which handle's z-index is on top.
+	&-fill {
+		background-color: var(--ranger-accent);
+		// Set via the fillGradient option (e.g. a green→yellow→red
+		// linear-gradient for a risk/temperature slider) — 'none' by
+		// default, so the plain background-color above shows through.
+		background-image: var(--ranger-fill-gradient, none);
+		border-radius: var(--ranger-radius);
+		height: 100%;
+		inset-inline-start: 0;
+		pointer-events: none;
+		position: absolute;
+		top: 0;
+		touch-action: none;
+		z-index: 1;
+
+		// Range mode only (see is-draggable in index.js) — grab the fill to
+		// slide both handles together, keeping their distance fixed.
+		&.is-draggable {
+			cursor: grab;
+			pointer-events: auto;
+		}
+	}
 
 	&-input {
-		height: 10px;
-		margin-bottom: 2rem;
-		width: 100%;
-		background-color: #f1f1f1;
-		accent-color: #0b6dea;
-		border-radius: 3px;
-		padding: 0;
-		-webkit-appearance: none;
-		-moz-appearance: none;
+		// Shared cosmetics — must apply from first paint (not just once JS
+		// mounts), or the native control briefly renders unstyled.
+		accent-color: var(--ranger-accent);
 		appearance: none;
-		position: relative;
-		pointer-events: none;
-		z-index: 2;
+		border-radius: var(--ranger-radius);
+		box-sizing: border-box;
+		cursor: pointer;
+		margin: 0;
+		padding: 0;
+		width: 100%;
 
-		&:first-child:not(:last-child) {
-			background-color: transparent;
-			z-index: 1;
-			position: absolute;
-		}
+		// Pre-init box: a real in-flow track occupying the exact same space
+		// as `.ranger` above, so nothing shifts once JS swaps this for the
+		// absolute overlay below (`.ranger > &`). Once wrapped, `.ranger`
+		// itself provides the visible box, so these are only load-bearing
+		// beforehand.
+		background-color: var(--ranger-bg);
+		display: block;
+		height: var(--ranger-height);
+		margin-block: var(--ranger-gap-top) var(--ranger-gap-bottom);
 
 		&::-webkit-slider-thumb {
 			-webkit-appearance: none;
 			appearance: none;
-			pointer-events: all;
-			width: 1.25rem;
-			height: 1.25rem;
-			cursor: pointer;
-			background-color: #fff;
-			background-position: center;
-			background-repeat: no-repeat;
-			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath stroke='%23bbb' d='M4.5 2v8M7.5 2v8'/%3E%3C/svg%3E");
-			border: 1px solid #bbb;
-			border-radius: 4px;
-			box-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
+			@include ranger-thumb;
 		}
 
 		&::-moz-range-thumb {
-
+			-moz-appearance: none;
+			appearance: none;
+			@include ranger-thumb;
 		}
 
-		&::-ms-thumb {
-
+		// Custom-styled thumbs don't reliably pick up the browser's default
+		// focus ring, so draw an explicit one for keyboard users.
+		&:focus-visible::-webkit-slider-thumb {
+			outline: 2px solid var(--ranger-accent);
+			outline-offset: 2px;
 		}
 
-		&::-webkit-slider-thumb:hover {
-			background-color: #f7f7f7;
+		&:focus-visible::-moz-range-thumb {
+			outline: 2px solid var(--ranger-accent);
+			outline-offset: 2px;
+		}
+
+		// Firefox paints its track/progress as separate pseudo-elements,
+		// independent of the input's own `background` — neutralize both so
+		// only our `.ranger-fill` layer is visible, with no default border.
+		&::-moz-range-track {
+			background: transparent;
+			border: none;
+			height: 100%;
 		}
 
 		&::-moz-range-progress {
-			background-color: #0b6dea;
+			background: transparent;
 		}
+
+		&::-webkit-slider-thumb:hover {
+			background-color: var(--ranger-thumb-hover-bg);
+		}
+
+		&::-moz-range-thumb:hover {
+			background-color: var(--ranger-thumb-hover-bg);
+		}
+	}
+
+	// Once JS wraps the input (see index.js), `.ranger` above owns the
+	// visible track/background/margins — the input itself becomes an
+	// invisible absolute overlay, positioned to exactly cover it.
+	& > &-input {
+		background-color: transparent;
+		height: 100%;
+		inset-inline-start: 0;
+		margin: 0;
+		pointer-events: none;
+		position: absolute;
+		top: 0;
+		z-index: 3;
 	}
 
 	&-label {
 		position: absolute;
-		left: 0;
-		right: 0;
-		top: -2rem;
-		margin-inline: 0.625rem;
+		inset-inline: 0;
+		top: calc(-1 * var(--ranger-gap-top));
+		transition: opacity 0.2s ease-out;
+
+		// labelOnDragOnly fades the label via opacity rather than display/
+		// visibility — those can't transition, and visibility on this
+		// ancestor wouldn't reliably hide labelTo either, since its own
+		// explicit visibility toggle (the merge-on-collision logic below)
+		// overrides an ancestor's `hidden`.
+		&.is-idle {
+			opacity: 0;
+			pointer-events: none;
+		}
 
 		&-item {
 			position: absolute;
 			white-space: nowrap;
+			background-color: #f1f1f1;
+			font-size: 11px;
+			padding: 2px 5px;
+			border-radius: 2px;
 		}
 	}
 
 	&-scale {
 		display: flex;
 		justify-content: space-between;
-		left: 0;
+		inset-inline-start: 0;
 		position: absolute;
 		top: 8px;
 		white-space: nowrap;
-		width: 100%;
+		width: calc(100% - 1px);
 		z-index: -1;
 		padding-inline: 0.625rem;
+		box-sizing: border-box;
 
 		&-tick {
 			position: relative;
@@ -88,7 +292,7 @@
 			justify-content: center;
 
 			&::before {
-				background-color: #ededed;
+				background-color: var(--ranger-tick-color);
 				content: '';
 				height: 8px;
 				left: 0;
@@ -97,18 +301,112 @@
 				width: 1px;
 			}
 
+			// Minor (unlabeled) ticks inserted between major ones — shorter,
+			// same baseline, so the hierarchy reads at a glance.
+			&--minor::before {
+				height: 4px;
+			}
+
+			// Opt-in (add this class alongside scaleTick/scaleTickMinor via the
+			// `classes` option): reacts to the live --ranger-scale custom
+			// property (0–1, how close the nearest handle is) that every tick
+			// already carries — grows taller and more opaque as a handle
+			// passes by, for an equalizer-style effect.
+			&--animated::before {
+				background-color: var(--ranger-tick-color);
+				height: calc(4px + var(--ranger-scale, 0) * 12px);
+				transition: height 0.15s ease-out, opacity 0.15s ease-out;
+			}
+
+			// Minor ticks animate too, just with a shorter baseline/peak so the
+			// major/minor hierarchy still reads once everything lights up.
+			&--minor.ranger-scale-tick--animated::before {
+				height: calc(2px + var(--ranger-scale, 0) * 12px);
+			}
+
 			&:last-child {
 				margin-left: -1px;
 				width: 0;
 			}
 
 			ins {
-				color: #333;
+				color: var(--ranger-tick-label-color);
 				display: inline-block;
-				font-size: 12px;
-				margin-top: 20px;
+				font-size: 11px;
+				margin-top: 24px;
 				text-decoration: none;
 			}
+		}
+	}
+
+	// A separate layer from &-scale — positions are arbitrary values from the `marks`
+	// option, not an evenly spaced grid, so ticks and marks can be used independently.
+	&-marks {
+		inset-inline: 0;
+		height: 100%;
+		pointer-events: none;
+		position: absolute;
+		top: 0;
+		z-index: 2;
+	}
+
+	&-mark {
+		background-color: var(--ranger-mark-color, var(--ranger-tick-color));
+		height: 100%;
+		position: absolute;
+		top: 0;
+		width: 2px;
+
+		// Anchored at the mark's own edge (not centered) — imperceptible at this
+		// width, and it sidesteps needing an RTL-aware transform to center it.
+		ins {
+			color: var(--ranger-tick-label-color);
+			font-size: 11px;
+			position: absolute;
+			white-space: nowrap;
+			bottom: 100%;
+			text-decoration: none;
+		}
+
+		// The `classes.markRange` default ({ from, to }) - width/inset are set
+		// inline per-mark in JS, so only the "zone" look lives here.
+		&--range {
+			opacity: 0.25;
+		}
+
+		// Opt-in (add via a mark's own `className`) - a wider, accent-colored
+		// variant for a single stand-out mark, e.g. a recommended value.
+		&--highlight {
+			background-color: var(--ranger-accent);
+			width: 4px;
+
+			ins {
+				color: var(--ranger-accent);
+				font-weight: 600;
+			}
+		}
+	}
+}
+
+.form_control {
+	display: flex;
+	gap: 1.5rem;
+	margin-bottom: 3rem;
+
+	&_container {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+
+		&__time {
+			color: #777;
+			font-size: 0.75rem;
+		}
+
+		&__time__input {
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			padding: 0.4rem 0.6rem;
 		}
 	}
 }
