@@ -5,6 +5,8 @@
 
   <h1>Демо Ranger.js</h1>
 
+  <button id="skin-switcher" type="button" class="skin-switcher">🎨 Скин: Coral</button>
+
   <section>
     <h2>1. Один ползунок</h2>
     <p>Обычный слайдер, один ползунок, настройки по умолчанию.</p>
@@ -147,9 +149,10 @@
   <section>
     <h2>19. Диапазон дат с ограничениями</h2>
     <p><code>values</code> может содержать объекты <code>Date</code> — слайдер превращается в выбор
-      диапазона дат по индексу массива, а сам массив (30 дней начиная с 1 января 2026) задаёт нижнюю
-      и верхнюю границу доступных дат. <code>format</code> отображает дату в читаемом виде.</p>
-    <input class="ranger-input" type="range" id="date-range" value="5" data-max-value="20"/>
+      диапазона дат по индексу массива, а сам массив (все дни с 1 по 30 июня 2026 — в июне их ровно 30)
+      задаёт нижнюю и верхнюю границу доступных дат: выбрать дату вне этих пределов невозможно.
+      Изначально выбран диапазон с 6 по 24 июня. <code>format</code> отображает дату в читаемом виде.</p>
+    <input class="ranger-input" type="range" id="date-range" value="5" data-max-value="23"/>
   </section>
 
   <section>
@@ -165,7 +168,6 @@
       и перетаскивание (в т.ч. клик по дорожке и перетаскивание всего диапазона) отражаются автоматически,
       без какой-либо отдельной настройки.</p>
     <input class="ranger-input" type="range" id="rtl-single" min="0" max="100" step="1" value="30"/>
-    <input class="ranger-input" type="range" id="rtl-range" min="0" max="100" step="1" value="20" data-max-value="70"/>
   </section>
 
   <script>
@@ -194,8 +196,8 @@
 
     var animatedScale = {
       scaleTicksCount: 10,
-      scaleMinorTicksCount: 2,
-      scaleAnimatedTicksCount: 3,
+      scaleMinorTicksCount: 4,
+      scaleAnimatedTicksCount: 2,
       classes: {
         scaleTick: 'ranger-scale-tick ranger-scale-tick--animated',
         scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor ranger-scale-tick--animated',
@@ -230,8 +232,10 @@
 
     new Ranger('#risk', { fillGradient: 'linear-gradient(to right, #22c55e, #eab308, #ef4444)' });
 
+    // 1–30 June 2026 (June has 30 days) — the array's own bounds are the
+    // slider's date limits.
     var dateValues = Array.from({ length: 30 }, function (_, i) {
-      var date = new Date(2026, 0, 1);
+      var date = new Date(2026, 5, 1);
       date.setDate(date.getDate() + i);
       return date;
     });
@@ -262,7 +266,22 @@
     });
 
     new Ranger('#rtl-single', { scaleTicksCount: 10 });
-    new Ranger('#rtl-range', { scaleTicksCount: 10 });
+
+    var skinSwitcher = document.getElementById('skin-switcher');
+    skinSwitcher.addEventListener('click', function () {
+      var isCoral = document.documentElement.dataset.skin === 'coral';
+
+      document.documentElement.dataset.skin = isCoral ? '' : 'coral';
+      skinSwitcher.textContent = isCoral ? '🎨 Скин: Coral' : '🎨 Скин: обычный';
+
+      // The skin itself re-paints live via CSS custom properties, but the
+      // fill's own color is read once per value change (see fillSlider in
+      // index.js) — refresh every mounted slider so it picks up the change
+      // immediately instead of waiting for the next drag.
+      Ranger.instances.forEach(function (instance) {
+        instance.fillSlider();
+      });
+    });
   });
   </script>
 

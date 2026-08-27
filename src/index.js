@@ -76,6 +76,12 @@ const DEFAULTS = {
 };
 
 export default class Ranger {
+  // Every mounted instance, in creation order — lets external code (e.g. a
+  // skin switcher) refresh already-rendered sliders after a global change
+  // without having to keep its own references: `Ranger.instances.forEach(r
+  // => r.fillSlider())`.
+  static instances = [];
+
   /**
    * @param {string|HTMLInputElement} target CSS selector or a `<input type="range">` element.
    * @param {object} [options]
@@ -100,6 +106,7 @@ export default class Ranger {
     }
 
     this.initialize();
+    Ranger.instances.push(this);
   }
 
   get isRange() {
@@ -424,8 +431,10 @@ export default class Ranger {
     const fromPercent = toSlider ? percent(fromSlider.value) : 0;
     const toPercent = percent(toSlider ? toSlider.value : fromSlider.value);
 
-    this.accentColor ||= getComputedStyle(fromSlider).accentColor;
-    fill.style.backgroundColor = this.accentColor;
+    // Re-read every time (not cached) so a live skin change — e.g. toggling
+    // `data-skin` — is picked up the next time fillSlider runs, without
+    // needing a dedicated skin-change listener.
+    fill.style.backgroundColor = getComputedStyle(fromSlider).accentColor;
     fill.style.setProperty('--ranger-fill-gradient', this.fillGradient || 'none');
     // Logical (not left/right) so the fill mirrors correctly under RTL.
     fill.style.insetInlineStart = `${fromPercent}%`;

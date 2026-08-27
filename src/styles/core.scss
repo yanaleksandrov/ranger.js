@@ -5,24 +5,102 @@
 // be combined into one rule.
 @mixin ranger-thumb {
 	pointer-events: all;
-	width: 1.25rem;
-	height: 1.25rem;
+	// The box below is the real hit/drag target — `--ranger-thumb-icon-size`
+	// (default `auto`, i.e. the image's own intrinsic size) lets a skin paint
+	// a *smaller* visible mark inside a larger box, growing the tappable area
+	// without growing what's actually drawn. `isolation: isolate` wouldn't do
+	// this — it only affects stacking/blend-mode containment, never hit-testing;
+	// a pseudo-element's hit area is always exactly its own box.
+	width: var(--ranger-thumb-width);
+	height: var(--ranger-thumb-height);
 	cursor: pointer;
-	background-color: #fff;
+	background-color: var(--ranger-thumb-bg);
 	background-position: center;
 	background-repeat: no-repeat;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath stroke='%23bbb' d='M4.5 2v8M7.5 2v8'/%3E%3C/svg%3E");
-	border: 1px solid #bbb;
-	border-radius: 4px;
-	box-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
+	background-image: var(--ranger-thumb-icon);
+	background-size: var(--ranger-thumb-icon-size, auto);
+	border: 1px solid var(--ranger-thumb-border);
+	border-radius: var(--ranger-thumb-radius);
+	box-shadow: var(--ranger-thumb-shadow);
+}
+
+// Skin tokens — the default skin. Declared on :root so they reach both the
+// pre-init raw <input> and the post-init `.ranger` tree (custom properties
+// inherit through the whole DOM, wrapper or not).
+:root {
+	--ranger-height: 10px;
+	--ranger-radius: 3px;
+	// Reserved above/below the track for the floating label and tick scale
+	// respectively (both shown by default) — kept on both the pre-init raw
+	// <input> and the post-init `.ranger` too, since they're positioned
+	// absolutely and so reserve no space on their own.
+	--ranger-gap-top: 2rem;
+	--ranger-gap-bottom: 2rem;
+	--ranger-bg: #f1f1f1;
+	--ranger-accent: #0b6dea;
+	--ranger-thumb-width: 1.25rem;
+	--ranger-thumb-height: 1.25rem;
+	--ranger-thumb-radius: 4px;
+	--ranger-thumb-bg: #fff;
+	--ranger-thumb-hover-bg: #f7f7f7;
+	--ranger-thumb-border: #bbb;
+	--ranger-thumb-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath stroke='%23bbb' d='M4.5 2v8M7.5 2v8'/%3E%3C/svg%3E");
+	--ranger-thumb-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
+	--ranger-tick-color: #bdbdbd;
+	--ranger-tick-label-color: #333;
+}
+
+// "Coral" skin — a flatter, squared-off look (in the spirit of Ion.RangeSlider's
+// grey-and-coral skins): square corners throughout, a thin bar-shaped handle
+// instead of the default rounded square, no grip icon or drop shadow.
+// Activate with `data-skin="coral"` on `.ranger` itself or on any ancestor
+// (e.g. <html>, to skin every slider on the page at once). Being plain
+// custom-property overrides, an already-mounted slider re-skins live the
+// moment the attribute changes — no re-init needed. The one exception is the
+// fill's own color, which index.js reads once per value change
+// (`getComputedStyle(...).accentColor`, see fillSlider) rather than tracking
+// it continuously — call `.fillSlider()` again after switching the skin to
+// refresh already-rendered sliders immediately (see the demo's switcher).
+[data-skin="coral"] {
+	--ranger-height: 6px;
+	--ranger-radius: 0;
+	--ranger-bg: #e2e2e2;
+	--ranger-accent: #ff6f59;
+	--ranger-thumb-width: 14px;
+	--ranger-thumb-height: 28px;
+	--ranger-thumb-radius: 0;
+	--ranger-thumb-bg: #ff6f59;
+	--ranger-thumb-hover-bg: #d85b48;
+	--ranger-thumb-border: transparent;
+	--ranger-thumb-icon: linear-gradient(#ff6f59, #ff6f59);
+	--ranger-thumb-icon-size: 2px 18px;
+	--ranger-thumb-shadow: none;
+	--ranger-tick-color: #bdbdbd;
+	--ranger-tick-label-color: #888;
+
+	.ranger-scale {
+		padding: 0;
+	}
+
+	.ranger-input {
+		&::-webkit-slider-thumb {
+			border-width: 6px;
+			box-sizing: border-box;
+		}
+
+		&::-moz-range-thumb {
+			border-width: 6px;
+			box-sizing: border-box;
+		}
+	}
 }
 
 .ranger {
-	background-color: #f1f1f1;
-	border-radius: 3px;
+	background-color: var(--ranger-bg);
+	border-radius: var(--ranger-radius);
 	cursor: pointer;
-	height: 10px;
-	margin-bottom: 2rem;
+	height: var(--ranger-height);
+	margin-block: var(--ranger-gap-top) var(--ranger-gap-bottom);
 	position: relative;
 
 	&.is-disabled {
@@ -56,12 +134,12 @@
 	// Colored progress fill — a dedicated layer so it can never paint over
 	// either handle, regardless of which handle's z-index is on top.
 	&-fill {
-		background-color: #0b6dea;
+		background-color: var(--ranger-accent);
 		// Set via the fillGradient option (e.g. a green→yellow→red
 		// linear-gradient for a risk/temperature slider) — 'none' by
 		// default, so the plain background-color above shows through.
 		background-image: var(--ranger-fill-gradient, none);
-		border-radius: 3px;
+		border-radius: var(--ranger-radius);
 		height: 100%;
 		inset-inline-start: 0;
 		pointer-events: none;
@@ -79,19 +157,26 @@
 	}
 
 	&-input {
-		accent-color: #0b6dea;
+		// Shared cosmetics — must apply from first paint (not just once JS
+		// mounts), or the native control briefly renders unstyled.
+		accent-color: var(--ranger-accent);
 		appearance: none;
-		background: transparent;
-		border-radius: 3px;
-		height: 100%;
-		inset-inline-start: 0;
+		border-radius: var(--ranger-radius);
+		box-sizing: border-box;
+		cursor: pointer;
 		margin: 0;
 		padding: 0;
-		pointer-events: none;
-		position: absolute;
-		top: 0;
 		width: 100%;
-		z-index: 3;
+
+		// Pre-init box: a real in-flow track occupying the exact same space
+		// as `.ranger` above, so nothing shifts once JS swaps this for the
+		// absolute overlay below (`.ranger > &`). Once wrapped, `.ranger`
+		// itself provides the visible box, so these are only load-bearing
+		// beforehand.
+		background-color: var(--ranger-bg);
+		display: block;
+		height: var(--ranger-height);
+		margin-block: var(--ranger-gap-top) var(--ranger-gap-bottom);
 
 		&::-webkit-slider-thumb {
 			-webkit-appearance: none;
@@ -108,12 +193,12 @@
 		// Custom-styled thumbs don't reliably pick up the browser's default
 		// focus ring, so draw an explicit one for keyboard users.
 		&:focus-visible::-webkit-slider-thumb {
-			outline: 2px solid #0b6dea;
+			outline: 2px solid var(--ranger-accent);
 			outline-offset: 2px;
 		}
 
 		&:focus-visible::-moz-range-thumb {
-			outline: 2px solid #0b6dea;
+			outline: 2px solid var(--ranger-accent);
 			outline-offset: 2px;
 		}
 
@@ -131,18 +216,32 @@
 		}
 
 		&::-webkit-slider-thumb:hover {
-			background-color: #f7f7f7;
+			background-color: var(--ranger-thumb-hover-bg);
 		}
 
 		&::-moz-range-thumb:hover {
-			background-color: #f7f7f7;
+			background-color: var(--ranger-thumb-hover-bg);
 		}
+	}
+
+	// Once JS wraps the input (see index.js), `.ranger` above owns the
+	// visible track/background/margins — the input itself becomes an
+	// invisible absolute overlay, positioned to exactly cover it.
+	& > &-input {
+		background-color: transparent;
+		height: 100%;
+		inset-inline-start: 0;
+		margin: 0;
+		pointer-events: none;
+		position: absolute;
+		top: 0;
+		z-index: 3;
 	}
 
 	&-label {
 		position: absolute;
 		inset-inline: 0;
-		top: -2rem;
+		top: calc(-1 * var(--ranger-gap-top));
 		margin-inline: 0.625rem;
 		transition: opacity 0.2s ease-out;
 
@@ -159,6 +258,10 @@
 		&-item {
 			position: absolute;
 			white-space: nowrap;
+			background-color: #f1f1f1;
+			font-size: 11px;
+			padding: 2px 5px;
+			border-radius: 2px;
 		}
 	}
 
@@ -169,7 +272,7 @@
 		position: absolute;
 		top: 8px;
 		white-space: nowrap;
-		width: 100%;
+		width: calc(100% - 1px);
 		z-index: -1;
 		padding-inline: 0.625rem;
 		box-sizing: border-box;
@@ -181,7 +284,7 @@
 			justify-content: center;
 
 			&::before {
-				background-color: #ededed;
+				background-color: var(--ranger-tick-color);
 				content: '';
 				height: 8px;
 				left: 0;
@@ -202,9 +305,8 @@
 			// already carries — grows taller and more opaque as a handle
 			// passes by, for an equalizer-style effect.
 			&--animated::before {
-				background-color: #0b6dea;
+				background-color: var(--ranger-tick-color);
 				height: calc(4px + var(--ranger-scale, 0) * 12px);
-				opacity: calc(0.35 + var(--ranger-scale, 0) * 0.65);
 				transition: height 0.15s ease-out, opacity 0.15s ease-out;
 			}
 
@@ -220,7 +322,7 @@
 			}
 
 			ins {
-				color: #333;
+				color: var(--ranger-tick-label-color);
 				display: inline-block;
 				font-size: 12px;
 				margin-top: 20px;
