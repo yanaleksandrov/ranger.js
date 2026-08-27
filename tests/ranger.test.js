@@ -181,7 +181,9 @@ describe('values option (index picker)', () => {
     const ranger = new Ranger(makeInput({ value: 0 }), { values: ['S', 'M', 'L', 'XL'] });
     expect(ranger.fromSlider.min).toBe('0');
     expect(ranger.fromSlider.max).toBe('3');
-    expect(ranger.fromSlider.step).toBe('1');
+    // The native `step` attribute is always neutralized to "any" (see
+    // initialize() in index.js) — `this.step` is where the real value lives.
+    expect(ranger.step).toBe('1');
   });
 
   it('auto-derives scaleTicksCount from values.length - 1 when not explicit', () => {
@@ -529,10 +531,56 @@ describe('handleKeydown (Shift+Arrow fine nudge)', () => {
     expect(Number(input.value)).toBeCloseTo(5.3);
   });
 
-  it('ignores arrow keys pressed without Shift', () => {
+  it('nudges by the slider\'s own (coarse) step without Shift', () => {
+    // Regression guard: the native <input>'s own `step` attribute is kept
+    // at "any" (see initialize() in index.js), since a real browser would
+    // otherwise silently re-snap any fine value handleKeydown assigns back
+    // onto the native step grid — so a plain arrow press can no longer be
+    // left to the browser's own default action; it has to be handled here.
     const input = makeInput({ min: 0, max: 10, value: 5, step: 1 });
     new Ranger(input);
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: false, cancelable: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', cancelable: true }));
+    expect(input.value).toBe('6');
+  });
+
+  it('nudges down by the coarse step on a plain ArrowLeft', () => {
+    const input = makeInput({ min: 0, max: 10, value: 5, step: 1 });
+    new Ranger(input);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', cancelable: true }));
+    expect(input.value).toBe('4');
+  });
+
+  it('reverses plain ArrowLeft/ArrowRight under RTL, matching native browser behavior', () => {
+    const input = makeInput({ min: 0, max: 10, value: 5, step: 1 });
+    const ranger = new Ranger(input);
+    ranger.wrapper.style.direction = 'rtl';
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', cancelable: true }));
+    expect(input.value).toBe('4'); // ArrowRight decreases under RTL
+
+    input.value = 5;
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', cancelable: true }));
+    expect(input.value).toBe('6'); // ArrowLeft increases under RTL
+  });
+
+  it('does not flip ArrowUp/ArrowDown under RTL', () => {
+    const input = makeInput({ min: 0, max: 10, value: 5, step: 1 });
+    const ranger = new Ranger(input);
+    ranger.wrapper.style.direction = 'rtl';
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', cancelable: true }));
+    expect(input.value).toBe('6');
+  });
+
+  it('leaves Home/End/PageUp/PageDown to the browser\'s own default action', () => {
+    const input = makeInput({ min: 0, max: 10, value: 5, step: 1 });
+    new Ranger(input);
+
+    ['Home', 'End', 'PageUp', 'PageDown'].forEach((key) => {
+      const event = new KeyboardEvent('keydown', { key, cancelable: true });
+      input.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    });
     expect(input.value).toBe('5');
   });
 
@@ -657,17 +705,20 @@ describe('drag/focus callbacks', () => {
     expect(onEnd).toHaveBeenCalledWith(20, input);
   });
 
-  it('fires onStart/onEnd around a keyboard navigation-key press', () => {
+  it('fires onStart with the pre-nudge value and onEnd with the post-nudge value around a keyboard navigation-key press', () => {
     const onStart = vi.fn();
     const onEnd = vi.fn();
     const input = makeInput({ min: 0, max: 100, value: 20 });
     new Ranger(input, { onStart, onEnd });
 
+    // The keydown moves the slider (handleKeydown) — onStart must still
+    // report the value from *before* that move, which only holds if its
+    // own keydown listener runs before handleKeydown's (see addListeners).
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     expect(onStart).toHaveBeenCalledWith(20, input);
 
     input.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', bubbles: true }));
-    expect(onEnd).toHaveBeenCalledWith(20, input);
+    expect(onEnd).toHaveBeenCalledWith(21, input);
   });
 
   it('does not fire onStart for non-navigation keys', () => {
@@ -739,5 +790,126 @@ describe('external fromInput/toInput two-way sync', () => {
     ranger.toSlider.dispatchEvent(new Event('input'));
 
     expect(ranger.toInput.value).toBe('90');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fixedRange — an appointment-style slot that slides but never resizes
+// ---------------------------------------------------------------------------
+
+describe('fixedRange', () => {
+  it('locks in the initial gap (data-max-value minus value) when set to true', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+      fixedRange: true,
+    });
+    expect(ranger.rangeSize).toBe(30);
+  });
+
+  it('dragging the from handle slides the to handle by the same amount', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+      fixedRange: true,
+    });
+
+    ranger.fromSlider.value = 40;
+    ranger.fromSlider.dispatchEvent(new Event('input'));
+
+    expect(Number(ranger.fromSlider.value)).toBe(40);
+    expect(Number(ranger.toSlider.value)).toBe(70); // 40 + 30
+  });
+
+  it('dragging the to handle slides the from handle by the same amount', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+      fixedRange: true,
+    });
+
+    ranger.toSlider.value = 90;
+    ranger.toSlider.dispatchEvent(new Event('input'));
+
+    expect(Number(ranger.toSlider.value)).toBe(90);
+    expect(Number(ranger.fromSlider.value)).toBe(60); // 90 - 30
+  });
+
+  it('clamps the whole pair at the minimum instead of letting it shrink', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+      fixedRange: true,
+    });
+
+    ranger.fromSlider.value = 0;
+    ranger.fromSlider.dispatchEvent(new Event('input'));
+
+    expect(Number(ranger.fromSlider.value)).toBe(0);
+    expect(Number(ranger.toSlider.value)).toBe(30); // gap preserved, not clipped to 0
+  });
+
+  it('clamps the whole pair at the maximum instead of letting it shrink', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+      fixedRange: true,
+    });
+
+    ranger.toSlider.value = 100;
+    ranger.toSlider.dispatchEvent(new Event('input'));
+
+    expect(Number(ranger.toSlider.value)).toBe(100);
+    expect(Number(ranger.fromSlider.value)).toBe(70); // gap preserved, not clipped to 80
+  });
+
+  it('accepts an explicit numeric gap, overriding whatever data-max-value set up', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+      fixedRange: 10,
+    });
+
+    expect(ranger.rangeSize).toBe(10);
+    expect(Number(ranger.fromSlider.value)).toBe(20);
+    expect(Number(ranger.toSlider.value)).toBe(30); // re-synced at mount, not left at 50
+  });
+
+  it('fires onChange with [from, to] and the handle that was actually dragged', () => {
+    const onChange = vi.fn();
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+      fixedRange: true,
+      onChange,
+    });
+
+    ranger.fromSlider.value = 40;
+    ranger.fromSlider.dispatchEvent(new Event('input'));
+
+    expect(onChange).toHaveBeenCalledWith([40, 70], ranger.fromSlider);
+  });
+
+  it('keeps the gap fixed through a Shift+Arrow fine nudge', () => {
+    const ranger = new Ranger(
+      makeInput({ min: 0, max: 100, value: 20, step: 1, 'data-max-value': 50 }),
+      { fixedRange: true },
+    );
+
+    ranger.fromSlider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, cancelable: true }));
+
+    expect(Number(ranger.fromSlider.value)).toBeCloseTo(20.1);
+    expect(Number(ranger.toSlider.value)).toBeCloseTo(50.1);
+  });
+
+  it('is still fully compatible with dragging the whole range via the fill', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+      fixedRange: true,
+    });
+    mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
+
+    ranger.fill.dispatchEvent(new PointerEvent('pointerdown', { clientX: 0, pointerId: 1, bubbles: true }));
+    ranger.fill.dispatchEvent(new PointerEvent('pointermove', { clientX: 20, pointerId: 1 }));
+
+    expect(Number(ranger.fromSlider.value)).toBe(40);
+    expect(Number(ranger.toSlider.value)).toBe(70);
+  });
+
+  it('ignores minGap while fixedRange is active', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+      fixedRange: true,
+      minGap: 90, // would normally force a huge separation
+    });
+
+    ranger.fromSlider.value = 40;
+    ranger.fromSlider.dispatchEvent(new Event('input'));
+
+    expect(Number(ranger.toSlider.value)).toBe(70); // the fixed 30-wide gap, not minGap's 90
   });
 });

@@ -90,8 +90,8 @@ describe('createScale', () => {
   });
 });
 
-describe('updateScale (--ranger-scale proximity)', () => {
-  it('sets --ranger-scale to 1 on the tick under the handle', () => {
+describe('updateScale (--ranger-scale arc: 1 (tallest) at the handle, eases non-linearly down to 0 across the radius)', () => {
+  it('is 1 (its tallest) exactly at the handle', () => {
     const input = makeInput({ min: 0, max: 100, value: 50 });
     const ranger = new Ranger(input, { scaleTicksCount: 10, scaleAnimatedTicksCount: 1 });
 
@@ -99,25 +99,60 @@ describe('updateScale (--ranger-scale proximity)', () => {
     expect(atHandle.tick.style.getPropertyValue('--ranger-scale')).toBe('1.00');
   });
 
-  it('fades --ranger-scale to 0 for ticks beyond scaleAnimatedTicksCount', () => {
-    const input = makeInput({ min: 0, max: 100, value: 0 });
+  it('is 0.25 at the midpoint of the scaleAnimatedTicksCount radius (a sharpened, not a plain, raised cosine)', () => {
+    // tickSpacing = 10, scaleAnimatedTicksCount = 1 => maxDistance = 10;
+    // a handle at 55 puts the tick at 50 exactly at distance 5 (half of 10).
+    // A plain raised cosine (or a linear ramp) would read 0.5 there — the
+    // sharpened arc pulls the shoulders in toward the handle, so the
+    // midpoint reads lower (0.5 squared) and the peak looks taller/narrower
+    // against its surroundings.
+    const input = makeInput({ min: 0, max: 100, value: 55 });
     const ranger = new Ranger(input, { scaleTicksCount: 10, scaleAnimatedTicksCount: 1 });
 
-    const farTick = ranger.scaleTicks.find((t) => t.value === 100);
-    expect(farTick.tick.style.getPropertyValue('--ranger-scale')).toBe('0.00');
+    const halfway = ranger.scaleTicks.find((t) => t.value === 50);
+    expect(halfway.tick.style.getPropertyValue('--ranger-scale')).toBe('0.25');
   });
 
-  it('recomputes proximity on every input event', () => {
-    const input = makeInput({ min: 0, max: 100, value: 0 });
+  it('eases down to 0 at the far edge of the radius, and stays 0 beyond it', () => {
+    const input = makeInput({ min: 0, max: 100, value: 50 });
     const ranger = new Ranger(input, { scaleTicksCount: 10, scaleAnimatedTicksCount: 1 });
 
-    input.value = 100;
+    const atFarEdge = ranger.scaleTicks.find((t) => t.value === 40); // distance 10 == maxDistance
+    const wayBeyond = ranger.scaleTicks.find((t) => t.value === 0); // distance 50
+    expect(atFarEdge.tick.style.getPropertyValue('--ranger-scale')).toBe('0.00');
+    expect(wayBeyond.tick.style.getPropertyValue('--ranger-scale')).toBe('0.00');
+  });
+
+  it('is a single hump peaking at the handle — not a dip at the handle flanked by two peaks', () => {
+    // Regression guard for a shape that briefly shipped: 0 right at the
+    // handle with a peak on either side of it (two humps, a dip in the
+    // middle) instead of one hump peaking at the handle itself.
+    const input = makeInput({ min: 0, max: 100, value: 50 });
+    const ranger = new Ranger(input, { scaleTicksCount: 10, scaleMinorTicksCount: 9, scaleAnimatedTicksCount: 5 });
+
+    const scaleAt = (val) => Number(ranger.scaleTicks.find((t) => t.value === val).tick.style.getPropertyValue('--ranger-scale'));
+    const left = [46, 47, 48, 49, 50].map(scaleAt);
+    const right = [50, 51, 52, 53, 54].map(scaleAt);
+
+    for (let i = 1; i < left.length; i += 1) {
+      expect(left[i]).toBeGreaterThan(left[i - 1]); // strictly rises approaching the handle from the left
+    }
+    for (let i = 1; i < right.length; i += 1) {
+      expect(right[i]).toBeLessThan(right[i - 1]); // strictly falls moving away on the right
+    }
+    expect(scaleAt(50)).toBe(1);
+  });
+
+  it('recomputes the arc on every input event', () => {
+    const input = makeInput({ min: 0, max: 100, value: 50 });
+    const ranger = new Ranger(input, { scaleTicksCount: 10, scaleAnimatedTicksCount: 1 });
+    const tick50 = ranger.scaleTicks.find((t) => t.value === 50);
+    expect(tick50.tick.style.getPropertyValue('--ranger-scale')).toBe('1.00');
+
+    input.value = 0;
     input.dispatchEvent(new Event('input'));
 
-    const nowAtHandle = ranger.scaleTicks.find((t) => t.value === 100);
-    const nowFar = ranger.scaleTicks.find((t) => t.value === 0);
-    expect(nowAtHandle.tick.style.getPropertyValue('--ranger-scale')).toBe('1.00');
-    expect(nowFar.tick.style.getPropertyValue('--ranger-scale')).toBe('0.00');
+    expect(tick50.tick.style.getPropertyValue('--ranger-scale')).toBe('0.00');
   });
 
   it('uses the distance to whichever handle is nearer in range mode', () => {
@@ -128,5 +163,14 @@ describe('updateScale (--ranger-scale proximity)', () => {
     const nearTo = ranger.scaleTicks.find((t) => t.value === 80);
     expect(nearFrom.tick.style.getPropertyValue('--ranger-scale')).toBe('1.00');
     expect(nearTo.tick.style.getPropertyValue('--ranger-scale')).toBe('1.00');
+  });
+
+  it('does not throw or produce NaN when scaleAnimatedTicksCount is 0', () => {
+    const input = makeInput({ min: 0, max: 100, value: 50 });
+    const ranger = new Ranger(input, { scaleTicksCount: 10, scaleAnimatedTicksCount: 0 });
+
+    ranger.scaleTicks.forEach(({ tick }) => {
+      expect(tick.style.getPropertyValue('--ranger-scale')).toBe('0.00');
+    });
   });
 });

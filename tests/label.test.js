@@ -101,6 +101,44 @@ describe('label position clamps to the track edges (flush, no overhang)', () => 
     expect(ranger.labelFrom.style.insetInlineStart).toBe('0px');
     expect(ranger.labelTo.style.insetInlineStart).toBe('140px'); // 200 - 60
   });
+
+  it('recalculates position via a ResizeObserver when the wrapper is resized without a value change', () => {
+    // Positions are computed in pixels, not left to CSS percentages to
+    // resolve on their own — so without this, resizing the window/container
+    // (with no accompanying slider input event) would leave the label
+    // exactly where it was, no longer matching the new track width.
+    const observers = [];
+    const OriginalResizeObserver = global.ResizeObserver;
+    global.ResizeObserver = class {
+      constructor(callback) {
+        this.callback = callback;
+        observers.push(this);
+      }
+
+      observe(target) {
+        this.target = target;
+      }
+
+      unobserve() {}
+
+      disconnect() {}
+    };
+
+    try {
+      const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { scaleTicksCount: 0 });
+      mockWidth(ranger.label, 200);
+      mockOffsetWidth(ranger.labelFrom, 20);
+
+      expect(observers).toHaveLength(1);
+      expect(observers[0].target).toBe(ranger.wrapper);
+
+      observers[0].callback(); // simulate a resize notification
+
+      expect(ranger.labelFrom.style.insetInlineStart).toBe('90px'); // 50% of 200 - 20/2
+    } finally {
+      global.ResizeObserver = OriginalResizeObserver;
+    }
+  });
 });
 
 describe('createLabel (single handle)', () => {

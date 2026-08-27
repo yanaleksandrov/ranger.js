@@ -1,91 +1,117 @@
-import { createScale } from './scripts/scale';
-import { createLabel } from './scripts/label';
-import { roundToStep, NAVIGATION_KEYS, formatDisplayValue } from './scripts/helpers';
-
-const DEFAULTS = {
-  classes: {
-    container: 'ranger',
-    fill: 'ranger-fill',
-    inputTo: 'ranger-input--to',
-    scale: 'ranger-scale',
-    scaleTick: 'ranger-scale-tick',
-    scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor',
-    label: 'ranger-label',
-    labelItem: 'ranger-label-item',
-  },
-
-  scaleTickPrefix: '',
-  scaleTickSuffix: '',
-  scaleTicksCount: 10,
-  // Unlabeled ticks inserted between each pair of major ticks, evenly
-  // splitting that gap — e.g. 3 turns 1 gap into 4 equal minor steps.
-  scaleMinorTicksCount: 0,
-  // How many ticks on EITHER side of a handle get a nonzero --ranger-scale,
-  // tapering to 0 at that distance — one shared radius, applied symmetrically.
-  scaleAnimatedTicksCount: 1,
-
-  labelIsVisible: true,
-  labelPrefix: '',
-  labelSuffix: '',
-  // Keep the label hidden except while a handle is actively being dragged
-  // or nudged via keyboard.
-  labelOnDragOnly: false,
-
-  disabled: false,
-
-  // CSS background (typically a linear-gradient) painted on the fill,
-  // replacing the plain accentColor — e.g. green→yellow→red for a
-  // risk/temperature slider. Pinned to absolute positions along the whole
-  // min–max range (not stretched to the fill's own, constantly changing,
-  // width), so a given point on the gradient always represents the same
-  // value, however far the fill currently reaches.
-  fillGradient: null,
-
-  // Array of display values (labels, dates, price tiers, ...) — the slider
-  // becomes an index picker over it (min/max/step are derived automatically).
-  values: null,
-  // (value) => string. Overrides labelPrefix/Suffix + scaleTickPrefix/Suffix
-  // wherever a value is displayed. Auto-derived when `values` or `logScale`
-  // is set, unless one is explicitly provided here too.
-  format: null,
-  // Exponential mapping between the slider's own min/max (min must be > 0)
-  // — drag position stays linear, only the displayed/formatted value isn't.
-  logScale: false,
-
-  // Values that magnetically pull a handle in once it's dragged within
-  // snapThreshold (a fraction of the min–max range) of them.
-  snapPoints: [],
-  snapThreshold: 0.02,
-  // Step used for Shift+Arrow nudges; defaults to step/10 when unset.
-  fineStep: null,
-  // Minimum distance the two handles must keep apart (range mode only).
-  minGap: 0,
-
-  // Optional external <input> elements kept in sync with the slider(s).
-  fromInput: null,
-  toInput: null,
-
-  // Callbacks — (value, slider) for a single handle, or ([from, to], slider)
-  // in range mode; `slider` is the handle (or, for a whole-range drag, the
-  // fill element) that triggered the call.
-  onStart: null, // fired when a handle drag (pointer or keyboard) begins
-  onChange: null, // fired on every resolved value change
-  onEnd: null, // fired when a handle drag (pointer or keyboard) ends
-  onFocus: null, // fired when a handle gains focus
-  onBlur: null, // fired when a handle loses focus
-};
-
 export default class Ranger {
-  // Every mounted instance, in creation order — lets external code (e.g. a
-  // skin switcher) refresh already-rendered sliders after a global change
-  // without having to keep its own references: `Ranger.instances.forEach(r
-  // => r.fillSlider())`.
+  // Every mounted instance, in creation order (for bulk refresh, e.g. after a skin change).
   static instances = [];
 
-  /**
-   * @param {string|HTMLInputElement} target CSS selector or a `<input type="range">` element.
-   * @param {object} [options]
-   */
+  // Keys treated as a keyboard-driven nudge/drag (label visibility, onStart/onEnd).
+  static NAVIGATION_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
+
+  // How sharply the --ranger-scale arc peaks; squaring narrows/heightens it vs a plain raised cosine.
+  static ARC_SHARPNESS = 2;
+
+  static DEFAULTS = {
+    classes: {
+      container: 'ranger',
+      fill: 'ranger-fill',
+      inputTo: 'ranger-input--to',
+      scale: 'ranger-scale',
+      scaleTick: 'ranger-scale-tick',
+      scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor',
+      label: 'ranger-label',
+      labelItem: 'ranger-label-item',
+    },
+
+    scaleTickPrefix: '',
+    scaleTickSuffix: '',
+    scaleTicksCount: 10,
+    // Unlabeled ticks inserted between each pair of major ticks, evenly splitting that gap.
+    scaleMinorTicksCount: 0,
+    // Radius (in ticks) of the --ranger-scale arc on either side of a handle — see updateScale.
+    scaleAnimatedTicksCount: 1,
+
+    labelIsVisible: true,
+    labelPrefix: '',
+    labelSuffix: '',
+    // Keep the label hidden except while a handle is actively being dragged or nudged.
+    labelOnDragOnly: false,
+
+    disabled: false,
+
+    // CSS background (e.g. a linear-gradient) painted on the fill instead of accentColor.
+    fillGradient: null,
+
+    // Display values (labels, dates, ...) to pick by index — min/max/step derived automatically.
+    values: null,
+    // (value) => string; overrides the label/tick prefixes+suffixes wherever a value is shown.
+    format: null,
+    // Displays the value exponentially between min/max while dragging itself stays linear.
+    logScale: false,
+
+    // Values that magnetically pull a handle in once it's within snapThreshold of them.
+    snapPoints: [],
+    snapThreshold: 0.02,
+    // Step for Shift+Arrow nudges; defaults to step/10 when unset.
+    fineStep: null,
+    // Minimum distance between handles (range mode); ignored when fixedRange is set.
+    minGap: 0,
+
+    // Range mode: locks the handle gap so dragging either one slides, not resizes, the range.
+    fixedRange: false,
+
+    // External <input> elements kept in sync with the lower/single and upper handles.
+    fromInput: null,
+    toInput: null,
+
+    // (value, slider) — [from, to] in range mode; slider is the fill during a whole-range drag.
+    onStart: null, // fired when a handle drag (pointer or keyboard) begins
+    onChange: null, // fired on every resolved value change
+    onEnd: null, // fired when a handle drag (pointer or keyboard) ends
+    onFocus: null, // fired when a handle gains focus
+    onBlur: null, // fired when a handle loses focus
+  };
+
+  /** Creates a DOM element, optionally with a class and inner content. */
+  static createElement(tag, classes, content = '') {
+    const element = document.createElement(tag);
+
+    if (classes) {
+      element.className = classes;
+    }
+
+    if (content) {
+      element.innerHTML = content;
+    }
+    return element;
+  }
+
+  /** Rounds to the decimal precision of step ("any" = unrounded). */
+  static roundToStep(value, step) {
+    const stepString = String(step);
+
+    if (stepString.toLowerCase() === 'any') {
+      return Number(value);
+    }
+
+    const decimals = stepString.includes('.') ? stepString.split('.')[1].length : 0;
+
+    return parseFloat(Number(value).toFixed(decimals));
+  }
+
+  /** Percentage `value` falls at between `start` and `end`. */
+  static calculatePercent(start, end, value) {
+    return ((value - start) / (end - start)) * 100;
+  }
+
+  // Smallest divisor of lastIndex >= minSkip, so 0/lastIndex stay included; falls back to lastIndex.
+  static findSkip(lastIndex, minSkip) {
+    for (let skip = minSkip; skip <= lastIndex; skip++) {
+      if (lastIndex % skip === 0) {
+        return skip;
+      }
+    }
+    return lastIndex;
+  }
+
+  /** @param {string|HTMLInputElement} target @param {object} [options] */
   constructor(target, options = {}) {
     this.fromSlider = typeof target === 'string' ? document.querySelector(target) : target;
 
@@ -95,17 +121,13 @@ export default class Ranger {
 
     this.toSlider = null;
 
-    Object.assign(this, DEFAULTS, options, {
-      classes: { ...DEFAULTS.classes, ...options.classes },
-      // DEFAULTS.snapPoints is a single shared array — assigning it by
-      // reference to every instance that doesn't pass its own would let one
-      // instance's mutations (e.g. `ranger.snapPoints.push(...)`) leak into
-      // every other instance relying on the default.
+    Object.assign(this, Ranger.DEFAULTS, options, {
+      classes: { ...Ranger.DEFAULTS.classes, ...options.classes },
+      // Cloned per instance — DEFAULTS.snapPoints is one shared array otherwise.
       snapPoints: options.snapPoints ? [...options.snapPoints] : [],
     });
 
-    // One major tick per value by default — otherwise ticks land at
-    // fractional indexes, which round to the same value and duplicate.
+    // One major tick per value by default, else fractional indexes round to duplicate values.
     if (this.values && options.scaleTicksCount === undefined) {
       this.scaleTicksCount = this.values.length - 1;
     }
@@ -118,10 +140,7 @@ export default class Ranger {
     return this.toSlider !== null;
   }
 
-  // Whether the slider flows right-to-left, inherited via CSS from the
-  // wrapper's ancestors (e.g. a `dir="rtl"` container or `<html dir="rtl">`)
-  // — drives positionToValue, the fill's background-position, and the
-  // whole-range drag direction.
+  // Whether the slider flows RTL, inherited via CSS from an ancestor's dir attribute.
   get isRTL() {
     return getComputedStyle(this.wrapper).direction === 'rtl';
   }
@@ -140,6 +159,10 @@ export default class Ranger {
       this.format ||= (position) => Math.round(min * (max / min) ** ((position - min) / (max - min)));
     }
 
+    /* Neutralizes native `step` to "any" (it re-snaps assignments, breaking fineStep); `this.step` holds the real one. */
+    this.step = this.fromSlider.step;
+    this.fromSlider.step = 'any';
+
     const wrapper = document.createElement('div');
     wrapper.classList.add(this.classes.container);
 
@@ -149,9 +172,7 @@ export default class Ranger {
 
     this.fill = wrapper.appendChild(document.createElement('div'));
     this.fill.className = this.classes.fill;
-    // Purely a visual duplicate of the value already exposed via the
-    // slider's own aria-valuenow/aria-valuetext — hide it from assistive
-    // tech so it isn't announced twice.
+    // Purely visual; hidden from AT (the value's already exposed via the handle).
     this.fill.setAttribute('aria-hidden', 'true');
 
     if (this.fromSlider.hasAttribute('data-max-value')) {
@@ -163,6 +184,21 @@ export default class Ranger {
 
       wrapper.appendChild(this.toSlider);
       this.updateHandleStackOrder(this.toSlider);
+
+      if (this.fixedRange) {
+        this.rangeSize = typeof this.fixedRange === 'number'
+          ? this.fixedRange
+          : Number(this.toSlider.value) - Number(this.fromSlider.value);
+
+        // Honors an explicit numeric fixedRange even if data-max-value's own gap differs.
+        if (typeof this.fixedRange === 'number') {
+          const max = Number(this.fromSlider.max);
+          this.toSlider.value = Ranger.roundToStep(
+            Math.min(Number(this.fromSlider.value) + this.rangeSize, max),
+            this.step,
+          );
+        }
+      }
     }
 
     if (this.disabled) {
@@ -182,26 +218,21 @@ export default class Ranger {
     this.fillSlider();
     this.addListeners();
 
-    // fillGradient positions itself in pixels (see fillSlider), which goes
-    // stale if the slider's own rendered width changes without a value
-    // change alongside it.
+    // Re-fills on resize since fillGradient positions itself in px (stale otherwise).
     if (this.fillGradient) {
       new ResizeObserver(() => this.fillSlider()).observe(this.wrapper);
     }
 
     if (this.labelIsVisible) {
-      this.label = createLabel(this);
+      this.label = this.createLabel();
     }
     if (this.scaleTicksCount > 0) {
-      this.scale = createScale(this);
+      this.scale = this.createScale();
     }
   }
 
   /**
-   * Resolve the upper handle's starting value from `data-max-value`, falling
-   * back to the slider's own `max` when the attribute is empty or invalid.
-   *
-   * @returns {number}
+   * Resolve the upper handle's start from data-max-value, or fall back to max.
    */
   parseMaxValue() {
     const attr = this.fromSlider.dataset.maxValue;
@@ -211,6 +242,11 @@ export default class Ranger {
   }
 
   addListeners() {
+    // Registered first so startDrag reads the pre-move value before handleKeydown moves it.
+    if (this.onStart || this.onEnd || this.onFocus || this.onBlur) {
+      this.bindCallbackListeners();
+    }
+
     this.fromSlider.oninput = () => this.controlFromSlider();
     this.fromSlider.addEventListener('keydown', (event) => this.handleKeydown(event, this.fromSlider));
     this.fromSlider.addEventListener('dblclick', () => this.resetSlider(this.fromSlider, this.defaultFromValue));
@@ -237,23 +273,17 @@ export default class Ranger {
         });
       }
     });
-
-    if (this.onStart || this.onEnd || this.onFocus || this.onBlur) {
-      this.bindCallbackListeners();
-    }
   }
 
-  // Wires onStart/onEnd (a pointer or keyboard-nudge drag, per handle) and
-  // onFocus/onBlur. onChange is triggered separately, from controlFromSlider/
-  // controlToSlider, since every value change already funnels through there.
+  // Wires onStart/onEnd/onFocus/onBlur; onChange fires separately, from control*Slider.
   bindCallbackListeners() {
     [this.fromSlider, this.toSlider].filter(Boolean).forEach((slider) => {
       slider.addEventListener('focus', () => this.onFocus?.(Number(slider.value), slider));
       slider.addEventListener('blur', () => this.onBlur?.(Number(slider.value), slider));
 
       slider.addEventListener('pointerdown', () => this.startDrag(slider));
-      slider.addEventListener('keydown', (event) => NAVIGATION_KEYS.includes(event.key) && this.startDrag(slider));
-      slider.addEventListener('keyup', (event) => NAVIGATION_KEYS.includes(event.key) && this.endDrag(slider));
+      slider.addEventListener('keydown', (event) => Ranger.NAVIGATION_KEYS.includes(event.key) && this.startDrag(slider));
+      slider.addEventListener('keyup', (event) => Ranger.NAVIGATION_KEYS.includes(event.key) && this.endDrag(slider));
     });
 
     document.addEventListener('pointerup', () => this.activeDragSlider && this.endDrag(this.activeDragSlider));
@@ -269,8 +299,7 @@ export default class Ranger {
     this.onEnd?.(Number(slider.value), slider);
   }
 
-  // Reports the changed handle's resolved value — [from, to] in range mode,
-  // the plain value otherwise — to onChange, along with the handle itself.
+  // Reports [from, to] in range mode (else the plain value) plus the triggering handle.
   emitChange(slider) {
     if (!this.onChange) {
       return;
@@ -292,9 +321,14 @@ export default class Ranger {
       return;
     }
 
+    if (this.fixedRange) {
+      this.slideFixedRange(this.fromSlider);
+      return;
+    }
+
     const [from, to] = this.getParsed(this.fromSlider, this.toSlider);
     const ceiling = to - this.minGap;
-    const value = from > ceiling ? roundToStep(ceiling, this.fromSlider.step) : from;
+    const value = from > ceiling ? Ranger.roundToStep(ceiling, this.step) : from;
 
     this.fromSlider.value = value;
     this.fillSlider();
@@ -306,9 +340,14 @@ export default class Ranger {
   }
 
   controlToSlider() {
+    if (this.fixedRange) {
+      this.slideFixedRange(this.toSlider);
+      return;
+    }
+
     const [from, to] = this.getParsed(this.fromSlider, this.toSlider);
     const floor = from + this.minGap;
-    const value = Math.max(to, roundToStep(floor, this.fromSlider.step));
+    const value = Math.max(to, Ranger.roundToStep(floor, this.step));
 
     this.toSlider.value = value;
     this.fillSlider();
@@ -320,23 +359,46 @@ export default class Ranger {
     this.emitChange(this.toSlider);
   }
 
+  // fixedRange: repositions the OTHER handle to keep the pair rangeSize apart, clamped to min/max.
+  slideFixedRange(movedSlider) {
+    const min = Number(this.fromSlider.min);
+    const max = Number(this.fromSlider.max);
+    const step = this.stepFor(movedSlider);
+    const moved = this.resolveValue(movedSlider.value, step);
+
+    const rawFrom = movedSlider === this.fromSlider ? moved : moved - this.rangeSize;
+    const upperBound = Math.max(min, max - this.rangeSize);
+    const from = Math.min(Math.max(rawFrom, min), upperBound);
+
+    const fromValue = Ranger.roundToStep(from, step);
+    const toValue = Ranger.roundToStep(from + this.rangeSize, step);
+
+    this.fromSlider.value = fromValue;
+    this.toSlider.value = toValue;
+    this.fillSlider();
+    this.updateHandleStackOrder(this.toSlider);
+
+    if (this.fromInput) {
+      this.fromInput.value = fromValue;
+    }
+    if (this.toInput) {
+      this.toInput.value = toValue;
+    }
+    this.emitChange(movedSlider);
+  }
+
   getParsed(currentFrom, currentTo) {
     return [this.resolveValue(currentFrom.value, this.stepFor(currentFrom)), this.resolveValue(currentTo.value, this.stepFor(currentTo))];
   }
 
-  // The step to round a handle's value to: its own fine-nudge step while a
-  // Shift+Arrow keydown is being processed (see handleKeydown), otherwise
-  // its native `step` attribute. Without this, the coarse re-round every
-  // 'input' event applies (for native-drag snapPoints support) would
-  // silently collapse every fine nudge back onto the native step grid.
+  // Step to round to: activeStep while nudging, else this.step (native step is always "any").
   stepFor(slider) {
-    return this.activeSlider === slider ? this.activeStep : slider.step;
+    return this.activeSlider === slider ? this.activeStep : this.step;
   }
 
-  // Rounds to `step`, then pulls the result onto the nearest snapPoint when
-  // it's within snapThreshold (a fraction of the min–max range) of it.
+  // Rounds to step, then snaps onto the nearest snapPoint within snapThreshold.
   resolveValue(rawValue, step) {
-    const value = roundToStep(rawValue, step);
+    const value = Ranger.roundToStep(rawValue, step);
     if (!this.snapPoints.length) {
       return value;
     }
@@ -363,22 +425,24 @@ export default class Ranger {
     slider.dispatchEvent(new Event('input'));
   }
 
-  // Shift+Arrow nudges by fineStep (default step/10) instead of the native
-  // step; a plain arrow press is left to the browser's own handling.
+  // Arrow keys nudge by step (Shift = fineStep); handled here since native step is always "any".
   handleKeydown(event, slider) {
-    if (!event.shiftKey || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
       return;
     }
     event.preventDefault();
 
-    const direction = event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -1 : 1;
-    const step = this.fineStep ?? Number(slider.step || 1) / 10;
+    // Only Left/Right flip under RTL; Up/Down always mean increase/decrease.
+    const isForward = event.key === 'ArrowUp'
+      || (event.key === 'ArrowRight' && !this.isRTL)
+      || (event.key === 'ArrowLeft' && this.isRTL);
+    const direction = isForward ? 1 : -1;
+    const nativeStep = Number(this.step) || 1;
+    const step = event.shiftKey ? (this.fineStep ?? nativeStep / 10) : nativeStep;
 
     slider.value = this.resolveValue(Number(slider.value) + direction * step, step);
 
-    // Marks `slider` as fine-nudging so stepFor() rounds the ensuing
-    // controlFromSlider/controlToSlider pass to `step`, not the coarser
-    // native step attribute.
+    // Marks slider as nudging so stepFor() re-rounds to this step, not this.step, below.
     this.activeSlider = slider;
     this.activeStep = step;
     slider.dispatchEvent(new Event('input'));
@@ -386,9 +450,7 @@ export default class Ranger {
     this.activeStep = null;
   }
 
-  // Clicking the track (including the fill) jumps the nearest handle there.
-  // Clicks that land on a handle itself reach it directly, never the
-  // wrapper, so they're naturally excluded here.
+  // Track clicks jump the nearest handle; clicks on a handle itself never reach the wrapper.
   handleTrackClick(event) {
     if (event.target !== this.wrapper) {
       return;
@@ -399,14 +461,11 @@ export default class Ranger {
       ? this.toSlider
       : this.fromSlider;
 
-    target.value = this.resolveValue(value, target.step);
+    target.value = this.resolveValue(value, this.step);
     target.dispatchEvent(new Event('input'));
   }
 
-  // Grabbing the fill drags both handles together, keeping their distance
-  // fixed — e.g. sliding a whole date range instead of resizing it. Clicks
-  // that land here never reach handleTrackClick (its target is the fill,
-  // not the wrapper), so the two don't fight over the same gesture.
+  // Dragging the fill slides both handles together, keeping their distance fixed.
   handleFillDragStart(event) {
     event.preventDefault();
 
@@ -425,8 +484,8 @@ export default class Ranger {
       const delta = this.isRTL ? -rawDelta : rawDelta;
       const clampedDelta = Math.max(min - startFrom, Math.min(max - startTo, delta));
 
-      this.fromSlider.value = roundToStep(startFrom + clampedDelta, this.fromSlider.step);
-      this.toSlider.value = roundToStep(startTo + clampedDelta, this.toSlider.step);
+      this.fromSlider.value = Ranger.roundToStep(startFrom + clampedDelta, this.step);
+      this.toSlider.value = Ranger.roundToStep(startTo + clampedDelta, this.step);
       this.fromSlider.dispatchEvent(new Event('input'));
       this.toSlider.dispatchEvent(new Event('input'));
     };
@@ -441,8 +500,7 @@ export default class Ranger {
     this.fill.addEventListener('pointerup', onUp);
   }
 
-  // The fill sits in its own layer (see core.scss), so it's positioned by
-  // percentage alone — it can never end up drawn on top of a handle.
+  // Fill is a separate layer positioned by percentage, so it never draws over a handle.
   fillSlider() {
     const { fromSlider, toSlider, fill } = this;
 
@@ -453,22 +511,14 @@ export default class Ranger {
     const fromPercent = toSlider ? percent(fromSlider.value) : 0;
     const toPercent = percent(toSlider ? toSlider.value : fromSlider.value);
 
-    // Re-read every time (not cached) so a live skin change — e.g. toggling
-    // `data-skin` — is picked up the next time fillSlider runs, without
-    // needing a dedicated skin-change listener.
+    // Re-read every time so a live skin change is picked up on the very next value change.
     fill.style.backgroundColor = getComputedStyle(fromSlider).accentColor;
     fill.style.setProperty('--ranger-fill-gradient', this.fillGradient || 'none');
     // Logical (not left/right) so the fill mirrors correctly under RTL.
     fill.style.insetInlineStart = `${fromPercent}%`;
     fill.style.width = `${toPercent - fromPercent}%`;
 
-    // A gradient background otherwise stretches to the fill's OWN (constantly
-    // changing) width, so its last color always ends up at the current value
-    // regardless of where that actually falls. Instead, size it to the full
-    // track and shift it by the fill's own offset, so the fill acts as a
-    // window into a gradient whose colors stay pinned to absolute values.
-    // The offset is anchored to whichever physical edge is the RTL/LTR
-    // "start" edge, matching insetInlineStart above.
+    // Sized to the full track and offset by the fill's own start, so gradient colors stay pinned to absolute values.
     if (this.fillGradient) {
       const trackWidth = this.wrapper.getBoundingClientRect().width;
       const offset = (fromPercent / 100) * trackWidth;
@@ -479,8 +529,7 @@ export default class Ranger {
       fill.style.backgroundPosition = '';
     }
 
-    // Handles exactly overlapping would otherwise fully hide one behind the
-    // other; see .is-overlapping in core.scss, which splits their hit-areas.
+    // Handles exactly overlapping would hide one behind the other (see .is-overlapping in CSS).
     if (toSlider) {
       this.wrapper.classList.toggle('is-overlapping', Number(fromSlider.value) === Number(toSlider.value));
     }
@@ -491,15 +540,12 @@ export default class Ranger {
     }
   }
 
-  // Reflects the formatted display value via aria-valuetext, so assistive
-  // tech announces e.g. a mapped `values` entry, a `logScale` value, or a
-  // label prefix/suffix, instead of just the underlying raw value.
+  // Mirrors the formatted display value via aria-valuetext for assistive tech.
   updateAriaValueText(slider) {
-    slider.setAttribute('aria-valuetext', formatDisplayValue(this, slider.value));
+    slider.setAttribute('aria-valuetext', this.formatDisplayValue(slider.value));
   }
 
-  // Keeps whichever handle is more likely to need grabbing above the other;
-  // both stay above the fill layer regardless (see core.scss z-indexes).
+  // Keeps the more-likely-to-grab handle on top; both stay above the fill layer regardless.
   updateHandleStackOrder(target) {
     if (!this.toSlider) {
       return;
@@ -507,6 +553,195 @@ export default class Ranger {
 
     const midpoint = (Number(this.fromSlider.min) + Number(this.fromSlider.max)) / 2;
     this.toSlider.style.zIndex = Number(target.value) <= midpoint ? 4 : 2;
+  }
+
+  // Formats a value the same way everywhere it's shown (label, aria-valuetext, ...).
+  formatDisplayValue(value) {
+    return this.format ? String(this.format(Number(value))) : `${this.labelPrefix}${value}${this.labelSuffix}`;
+  }
+
+  /** Builds the floating value label(s) above the handle(s). */
+  createLabel() {
+    const label = Ranger.createElement('div', this.classes.label);
+    // Purely visual; hidden from AT (the value's already exposed via the handle).
+    label.setAttribute('aria-hidden', 'true');
+    // Set before calcPositions() below, which reads this.label to measure the container width.
+    this.label = label;
+
+    this.labelFrom = label.appendChild(Ranger.createElement('div', this.classes.labelItem));
+    this.fromSlider.addEventListener('input', () => this.calcPositions());
+
+    if (this.isRange) {
+      this.labelTo = label.appendChild(Ranger.createElement('div', this.classes.labelItem));
+      this.toSlider.addEventListener('input', () => this.calcPositions());
+    }
+
+    this.wrapper.appendChild(label);
+    this.calcPositions();
+
+    // Recalculates on resize since positions are computed in px, not left to CSS % to self-update.
+    new ResizeObserver(() => this.calcPositions()).observe(this.wrapper);
+
+    if (this.labelOnDragOnly) {
+      this.bindDragVisibility();
+    }
+
+    return label;
+  }
+
+  // Fades the label out except while a handle is actively dragged/nudged (see .is-idle in CSS).
+  bindDragVisibility() {
+    this.label.classList.add('is-idle');
+
+    const show = () => {
+      this.label.classList.remove('is-idle');
+      this.calcPositions();
+    };
+    const hide = () => {
+      this.label.classList.add('is-idle');
+    };
+
+    [this.fromSlider, this.toSlider].filter(Boolean).forEach((slider) => {
+      slider.addEventListener('pointerdown', show);
+      slider.addEventListener('keydown', (event) => Ranger.NAVIGATION_KEYS.includes(event.key) && show());
+      slider.addEventListener('keyup', (event) => Ranger.NAVIGATION_KEYS.includes(event.key) && hide());
+    });
+
+    document.addEventListener('pointerup', hide);
+  }
+
+  calcPositions() {
+    const { fromSlider, toSlider, labelFrom, labelTo, label } = this;
+    const containerWidth = label.clientWidth;
+
+    const setLabelStyle = (labelEl, value, percent) => {
+      labelEl.innerText = this.formatDisplayValue(value);
+      this.positionLabel(labelEl, percent, containerWidth);
+    };
+
+    const percentFrom = Ranger.calculatePercent(+fromSlider.min, +fromSlider.max, +fromSlider.value);
+    setLabelStyle(labelFrom, fromSlider.value, percentFrom);
+
+    if (!this.isRange) {
+      return;
+    }
+
+    const percentTo = Ranger.calculatePercent(+toSlider.min, +toSlider.max, +toSlider.value);
+    setLabelStyle(labelTo, toSlider.value, percentTo);
+
+    // Gap between facing edges, measured direction-agnostically (works when RTL mirrors labelTo).
+    const fromRect = labelFrom.getBoundingClientRect();
+    const toRect = labelTo.getBoundingClientRect();
+    const distanceX = Math.max(fromRect.left, toRect.left) - Math.min(fromRect.right, toRect.right);
+
+    if (distanceX < 10) {
+      labelFrom.innerText = fromSlider.value === toSlider.value
+        ? this.formatDisplayValue(fromSlider.value)
+        : `${this.formatDisplayValue(fromSlider.value)} – ${this.formatDisplayValue(toSlider.value)}`;
+
+      this.positionLabel(labelFrom, percentFrom + (percentTo - percentFrom) / 2, containerWidth);
+      labelTo.style.visibility = 'hidden';
+    } else {
+      labelTo.style.visibility = 'visible';
+    }
+  }
+
+  // Centers on percent, then clamps so the label never overhangs past the track's own edges.
+  positionLabel(labelEl, percent, containerWidth) {
+    const raw = (percent / 100) * containerWidth - labelEl.offsetWidth / 2;
+    const clamped = Math.max(0, Math.min(containerWidth - labelEl.offsetWidth, raw));
+    labelEl.style.insetInlineStart = `${clamped}px`;
+  }
+
+  /**
+   * Builds the tick scale — major + minor ticks, each with a live --ranger-scale property to animate.
+   */
+  createScale() {
+    const scale = Ranger.createElement('div', this.classes.scale);
+    // Purely visual; hidden from AT (the value's already exposed via the handle).
+    scale.setAttribute('aria-hidden', 'true');
+
+    const minorStep = this.scaleMinorTicksCount + 1;
+    const segments = this.scaleTicksCount * minorStep;
+
+    this.scaleTicks = this.calcTicks(segments).map((value, index) => {
+      const isMajor = index % minorStep === 0;
+      const tick = Ranger.createElement('span', isMajor ? this.classes.scaleTick : this.classes.scaleMinorTick);
+      let label = null;
+
+      if (isMajor) {
+        const step = Ranger.roundToStep(value, this.step || 1);
+        const text = this.format
+          ? this.format(step)
+          : `${this.scaleTickPrefix}${step}${this.scaleTickSuffix}`;
+
+        label = Ranger.createElement('ins', '', text);
+        tick.appendChild(label);
+      }
+
+      scale.appendChild(tick);
+
+      return { value, tick, label, isMajor };
+    });
+
+    this.wrapper.appendChild(scale);
+    this.updateScale();
+    this.arrangeScale();
+
+    this.fromSlider.addEventListener('input', () => this.updateScale());
+    if (this.isRange) {
+      this.toSlider.addEventListener('input', () => this.updateScale());
+    }
+    new ResizeObserver(() => this.arrangeScale()).observe(this.wrapper);
+
+    return scale;
+  }
+
+  // Sets --ranger-scale per tick: a raised-cosine arc, 1 at the handle, easing to 0 by scaleAnimatedTicksCount away.
+  updateScale() {
+    const { fromSlider, toSlider, scaleTicks, scaleAnimatedTicksCount } = this;
+
+    const min = Number(fromSlider.min);
+    const max = Number(fromSlider.max);
+    const tickSpacing = (max - min) / (scaleTicks.length - 1);
+    const maxDistance = tickSpacing * scaleAnimatedTicksCount;
+    const handleValues = toSlider ? [Number(fromSlider.value), Number(toSlider.value)] : [Number(fromSlider.value)];
+
+    scaleTicks.forEach(({ value, tick }) => {
+      const distance = Math.min(...handleValues.map((handleValue) => Math.abs(handleValue - value)));
+      const scale = maxDistance > 0 && distance < maxDistance
+        ? ((Math.cos((distance / maxDistance) * Math.PI) + 1) / 2) ** Ranger.ARC_SHARPNESS
+        : 0;
+
+      tick.style.setProperty('--ranger-scale', scale.toFixed(2));
+    });
+  }
+
+  // Shows every Nth major label so 0/last stay visible and spacing stays uniform (N divides evenly).
+  arrangeScale() {
+    const majors = this.scaleTicks.filter((tick) => tick.isMajor);
+    const lastIndex = majors.length - 1;
+    if (lastIndex < 1) {
+      return;
+    }
+
+    // Measured from the first/last tick's real position (accounts for RTL and the scale's own padding).
+    const trackWidth = Math.abs(majors[lastIndex].tick.getBoundingClientRect().left - majors[0].tick.getBoundingClientRect().left);
+    const maxLabelWidth = Math.max(...majors.map(({ label }) => label.offsetWidth));
+    const minSkip = maxLabelWidth > 0 && trackWidth > 0 ? Math.ceil((maxLabelWidth * lastIndex) / trackWidth) : 1;
+    const skip = Ranger.findSkip(lastIndex, Math.max(1, minSkip));
+
+    majors.forEach(({ label }, index) => {
+      label.style.visibility = index % skip === 0 ? 'visible' : 'hidden';
+    });
+  }
+
+  /** Evenly spreads `segments + 1` values across the slider's min/max range. */
+  calcTicks(segments) {
+    const min = Number(this.fromSlider.min);
+    const max = Number(this.fromSlider.max);
+
+    return Array.from({ length: segments + 1 }, (_, index) => min + ((max - min) / segments) * index);
   }
 }
 
