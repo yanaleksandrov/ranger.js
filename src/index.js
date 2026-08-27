@@ -97,6 +97,11 @@ export default class Ranger {
 
     Object.assign(this, DEFAULTS, options, {
       classes: { ...DEFAULTS.classes, ...options.classes },
+      // DEFAULTS.snapPoints is a single shared array — assigning it by
+      // reference to every instance that doesn't pass its own would let one
+      // instance's mutations (e.g. `ranger.snapPoints.push(...)`) leak into
+      // every other instance relying on the default.
+      snapPoints: options.snapPoints ? [...options.snapPoints] : [],
     });
 
     // One major tick per value by default — otherwise ticks land at
@@ -277,7 +282,7 @@ export default class Ranger {
 
   controlFromSlider() {
     if (!this.isRange) {
-      this.fromSlider.value = this.resolveValue(this.fromSlider.value, this.fromSlider.step);
+      this.fromSlider.value = this.resolveValue(this.fromSlider.value, this.stepFor(this.fromSlider));
       this.fillSlider();
 
       if (this.fromInput) {
@@ -316,7 +321,16 @@ export default class Ranger {
   }
 
   getParsed(currentFrom, currentTo) {
-    return [this.resolveValue(currentFrom.value, currentFrom.step), this.resolveValue(currentTo.value, currentFrom.step)];
+    return [this.resolveValue(currentFrom.value, this.stepFor(currentFrom)), this.resolveValue(currentTo.value, this.stepFor(currentTo))];
+  }
+
+  // The step to round a handle's value to: its own fine-nudge step while a
+  // Shift+Arrow keydown is being processed (see handleKeydown), otherwise
+  // its native `step` attribute. Without this, the coarse re-round every
+  // 'input' event applies (for native-drag snapPoints support) would
+  // silently collapse every fine nudge back onto the native step grid.
+  stepFor(slider) {
+    return this.activeSlider === slider ? this.activeStep : slider.step;
   }
 
   // Rounds to `step`, then pulls the result onto the nearest snapPoint when
@@ -361,7 +375,15 @@ export default class Ranger {
     const step = this.fineStep ?? Number(slider.step || 1) / 10;
 
     slider.value = this.resolveValue(Number(slider.value) + direction * step, step);
+
+    // Marks `slider` as fine-nudging so stepFor() rounds the ensuing
+    // controlFromSlider/controlToSlider pass to `step`, not the coarser
+    // native step attribute.
+    this.activeSlider = slider;
+    this.activeStep = step;
     slider.dispatchEvent(new Event('input'));
+    this.activeSlider = null;
+    this.activeStep = null;
   }
 
   // Clicking the track (including the fill) jumps the nearest handle there.

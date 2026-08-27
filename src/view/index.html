@@ -172,6 +172,22 @@
 
   <script>
   document.addEventListener('DOMContentLoaded', function() {
+    var skinSwitcher = document.getElementById('skin-switcher');
+    skinSwitcher.addEventListener('click', function () {
+      var isCoral = document.documentElement.dataset.skin === 'coral';
+
+      document.documentElement.dataset.skin = isCoral ? '' : 'coral';
+      skinSwitcher.textContent = isCoral ? '🎨 Скин: Coral' : '🎨 Скин: обычный';
+
+      // The skin itself re-paints live via CSS custom properties, but the
+      // fill's own color is read once per value change (see fillSlider in
+      // index.js) — refresh every mounted slider so it picks up the change
+      // immediately instead of waiting for the next drag.
+      Ranger.instances.forEach(function (instance) {
+        instance.fillSlider();
+      });
+    });
+
     new Ranger('#single');
 
     new Ranger('#temperature', {
@@ -266,22 +282,6 @@
     });
 
     new Ranger('#rtl-single', { scaleTicksCount: 10 });
-
-    var skinSwitcher = document.getElementById('skin-switcher');
-    skinSwitcher.addEventListener('click', function () {
-      var isCoral = document.documentElement.dataset.skin === 'coral';
-
-      document.documentElement.dataset.skin = isCoral ? '' : 'coral';
-      skinSwitcher.textContent = isCoral ? '🎨 Скин: Coral' : '🎨 Скин: обычный';
-
-      // The skin itself re-paints live via CSS custom properties, but the
-      // fill's own color is read once per value change (see fillSlider in
-      // index.js) — refresh every mounted slider so it picks up the change
-      // immediately instead of waiting for the next drag.
-      Ranger.instances.forEach(function (instance) {
-        instance.fillSlider();
-      });
-    });
   });
   </script>
 

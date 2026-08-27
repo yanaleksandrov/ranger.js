@@ -28,6 +28,11 @@ export const createElement = (tag, classes, content = '') => {
  */
 export const roundToStep = (value, step) => {
   const stepString = String(step);
+
+  if (stepString.toLowerCase() === 'any') {
+    return Number(value);
+  }
+
   const decimals = stepString.includes('.') ? stepString.split('.')[1].length : 0;
 
   return parseFloat(Number(value).toFixed(decimals));

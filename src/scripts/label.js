@@ -12,6 +12,11 @@ export const createLabel = (instance) => {
   // own aria-valuenow/aria-valuetext — hide it from assistive tech so it
   // isn't announced twice.
   label.setAttribute('aria-hidden', 'true');
+  // Assigned before the calcPositions() call below (not just via the return
+  // value the caller assigns to instance.label) — calcPositions reads
+  // instance.label to measure the track width, so it needs to already be
+  // set the first time it runs, not only on every later 'input' event.
+  instance.label = label;
 
   instance.labelFrom = label.appendChild(createElement('div', instance.classes.labelItem));
   instance.fromSlider.addEventListener('input', () => calcPositions(instance));
@@ -55,12 +60,24 @@ const bindDragVisibility = (instance, label) => {
 };
 
 const calcPositions = (instance) => {
-  const { fromSlider, toSlider, labelFrom, labelTo } = instance;
+  const { fromSlider, toSlider, labelFrom, labelTo, label } = instance;
   const formatValue = (value) => formatDisplayValue(instance, value);
+  const containerWidth = label.clientWidth;
 
-  const setLabelStyle = (label, value, percent) => {
-    label.innerText = formatValue(value);
-    label.style.insetInlineStart = `calc(${percent}% - ${label.offsetWidth / 2}px)`;
+  // Centers a label on `percent`, then clamps it so it never overhangs past
+  // the track's own edges — a plain percent-centered position (the old
+  // behavior) only happens to look flush at the ends for short text; a
+  // wider label (e.g. more digits at the max end) sticks out past the
+  // track instead of landing flush with it.
+  const positionLabel = (labelEl, percent) => {
+    const raw = (percent / 100) * containerWidth - labelEl.offsetWidth / 2;
+    const clamped = Math.max(0, Math.min(containerWidth - labelEl.offsetWidth, raw));
+    labelEl.style.insetInlineStart = `${clamped}px`;
+  };
+
+  const setLabelStyle = (labelEl, value, percent) => {
+    labelEl.innerText = formatValue(value);
+    positionLabel(labelEl, percent);
   };
 
   const percentFrom = calculatePercent(+fromSlider.min, +fromSlider.max, +fromSlider.value);
@@ -84,7 +101,7 @@ const calcPositions = (instance) => {
       ? formatValue(fromSlider.value)
       : `${formatValue(fromSlider.value)} – ${formatValue(toSlider.value)}`;
 
-    labelFrom.style.insetInlineStart = `calc(${percentFrom}% + ${(percentTo - percentFrom) / 2}% - ${labelFrom.offsetWidth / 2}px)`;
+    positionLabel(labelFrom, percentFrom + (percentTo - percentFrom) / 2);
     labelTo.style.visibility = 'hidden';
   } else {
     labelTo.style.visibility = 'visible';
