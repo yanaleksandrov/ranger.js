@@ -1,27 +1,200 @@
 <% var data = {
-  title: "Home Page"
+  title: "Ranger.js — Демо"
 }; %>
 <%= _.template(require('./parts/header.html').default)(data) %>
 
-  <input class="ranger-input" type="range" name="percents" min="-1" max="1" step="0.01" value="-0.5" data-max-value="0.8"/>
-  <br>
-  <br>
+  <h1>Демо Ranger.js</h1>
 
-  <input class="ranger-input" type="range" name="ages" value="2000" min="0" max="50000" step="1" data-max-value="35000"/>
-  <div class="form_control">
+  <section>
+    <h2>1. Один ползунок</h2>
+    <p>Обычный слайдер, один ползунок, настройки по умолчанию.</p>
+    <input class="ranger-input" type="range" id="single" min="0" max="100" step="1" value="40"/>
+  </section>
+
+  <section>
+    <h2>2. Отрицательные и дробные значения</h2>
+    <p>Произвольный <code>step</code>, отрицательный <code>min</code>, префиксы и суффиксы у меток и делений.</p>
+    <input class="ranger-input" type="range" id="temperature" min="-1" max="1" step="0.01" value="-0.2"/>
+  </section>
+
+  <section>
+    <h2>3. Диапазонный слайдер, синхронизированный с внешними полями</h2>
+    <p>Два ползунка через <code>data-max-value</code>, значения дублируются в числовые поля ниже.</p>
+    <input class="ranger-input" type="range" id="ages" min="0" max="50000" step="1" value="2000" data-max-value="35000"/>
+    <div class="form_control">
       <span class="form_control_container">
-        <label class="form_control_container__time">Min</label>
-        <input class="form_control_container__time__input" type="number" id="fromInput" value="10" min="0" max="100"/>
+        <label class="form_control_container__time">Мин</label>
+        <input class="form_control_container__time__input" type="number" id="fromInput" min="0" max="50000" value="2000"/>
       </span>
-    <span class="form_control_container">
-        <label class="form_control_container__time">Max</label>
-        <input class="form_control_container__time__input" type="number" id="toInput" value="35000" min="0" max="50000"/>
+      <span class="form_control_container">
+        <label class="form_control_container__time">Макс</label>
+        <input class="form_control_container__time__input" type="number" id="toInput" min="0" max="50000" value="35000"/>
       </span>
-  </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. Диапазонный слайдер, близко расположенные ползунки</h2>
+    <p>Проверка объединения меток при столкновении (ползунки стартуют на расстоянии 4 в диапазоне 0–100).</p>
+    <input class="ranger-input" type="range" id="close-range" min="0" max="100" step="1" value="48" data-max-value="52"/>
+  </section>
+
+  <section>
+    <h2>5. Минимальный — без шкалы и меток</h2>
+    <input class="ranger-input" type="range" id="minimal" min="0" max="10" step="1" value="4"/>
+  </section>
+
+  <section>
+    <h2>6. Отключённый</h2>
+    <input class="ranger-input" type="range" id="disabled-range" min="0" max="100" step="1" value="30" data-max-value="70"/>
+  </section>
+
+  <section>
+    <h2>7. Анимированные деления шкалы, с промежуточными делениями</h2>
+    <p>Каждое деление — основное или промежуточное — содержит живое CSS-свойство <code>--ranger-scale</code>
+      (0–1, насколько близко ближайший ползунок), поэтому анимировать его можно обычным CSS.
+      <code>scaleMinorTicksCount</code> добавляет 3 промежуточных деления без подписи между каждой парой
+      основных, а <code>scaleAnimatedTicksCount</code> (здесь 4, целый интервал между основными делениями)
+      задаёт, сколько делений подсвечивается с <em>каждой</em> стороны от ползунка.</p>
+    <input class="ranger-input" type="range" id="equalizer" min="0" max="100" step="1" value="50"/>
+  </section>
+
+  <section>
+    <h2>8. Адаптивные подписи делений</h2>
+    <p>20 основных делений в узком контейнере (240px) — подписи, которые иначе накладывались бы друг на
+      друга, скрываются автоматически; проверка выполняется заново при каждом изменении фактической ширины
+      слайдера (через <code>ResizeObserver</code>), а не только один раз при загрузке страницы.</p>
+    <div style="max-width: 240px;">
+      <input class="ranger-input" type="range" id="responsive" min="0" max="100" step="1" value="50"/>
+    </div>
+  </section>
+
+  <section>
+    <h2>9. Анимированные деления: один ползунок и диапазон</h2>
+    <p>Одна и та же конфигурация анимации делений на слайдере с одним ползунком и на диапазонном (с двумя
+      ползунками) — при двух ползунках деления подсвечиваются рядом с <em>любым</em> из них независимо.</p>
+    <input class="ranger-input" type="range" id="eq-single" min="0" max="100" step="1" value="50"/>
+    <input class="ranger-input" type="range" id="eq-range" min="0" max="100" step="1" value="20" data-max-value="80"/>
+  </section>
+
+  <section>
+    <h2>10. Дискретные значения</h2>
+    <p><code>values</code> превращает слайдер в выбор индекса по массиву собственных отображаемых значений —
+      <code>min</code>/<code>max</code>/<code>step</code> вычисляются автоматически.</p>
+    <input class="ranger-input" type="range" id="sizes" value="2"/>
+  </section>
+
+  <section>
+    <h2>11. Пользовательское форматирование</h2>
+    <p>Функция <code>format(value)</code> полностью заменяет <code>labelPrefix</code>/<code>labelSuffix</code>
+      (и аналогичные параметры для делений шкалы) везде, где отображается значение — здесь это строка
+      валюты с учётом локали.</p>
+    <input class="ranger-input" type="range" id="price" min="0" max="5000" step="50" value="1250"/>
+  </section>
+
+  <section>
+    <h2>12. Логарифмическая шкала</h2>
+    <p><code>logScale</code> оставляет перемещение ползунка линейным, но отображает значение по
+      экспоненциальной шкале между <code>min</code> и <code>max</code> — больше точности в нижней части
+      диапазона, как в регуляторе частоты звука. Обратите внимание, как значения делений сгущаются слева.</p>
+    <input class="ranger-input" type="range" id="frequency" min="20" max="20000" step="1" value="20"/>
+  </section>
+
+  <section>
+    <h2>13. Точки привязки</h2>
+    <p><code>snapPoints</code> магнитом притягивает ползунок к заданным значениям, как только он оказывается
+      в пределах <code>snapThreshold</code> от них — попробуйте перетащить ползунок ближе к 25, 50 или 75.</p>
+    <input class="ranger-input" type="range" id="snap" min="0" max="100" step="1" value="10"/>
+  </section>
+
+  <section>
+    <h2>14. Минимальное расстояние между ползунками</h2>
+    <p><code>minGap</code> не позволяет ползункам сближаться меньше чем на 15 в этом диапазоне 0–100.</p>
+    <input class="ranger-input" type="range" id="min-gap" min="0" max="100" step="1" value="20" data-max-value="80"/>
+  </section>
+
+  <section>
+    <h2>15. Перетаскивание всего диапазона</h2>
+    <p>Схватите саму закрашенную полосу (не ползунок) и потяните — оба ползунка двигаются вместе, сохраняя
+      расстояние между собой, как перемещение окна диапазона дат. Работает автоматически на любом
+      диапазонном слайдере.</p>
+    <input class="ranger-input" type="range" id="whole-range" min="0" max="100" step="1" value="30" data-max-value="60"/>
+  </section>
+
+  <section>
+    <h2>16. Дополнительные взаимодействия: точный шаг и сброс</h2>
+    <p>Наведите фокус на ползунок: стрелки перемещают его на 10 (обычный <code>step</code>),
+      <strong>Shift</strong> + стрелка — на 1 (<code>fineStep</code>). Двойной клик по ползунку сбрасывает
+      его к начальному значению.</p>
+    <input class="ranger-input" type="range" id="fine-step" min="0" max="100" step="10" value="50"/>
+  </section>
+
+  <section>
+    <h2>17. Метка только во время перетаскивания</h2>
+    <p><code>labelOnDragOnly</code> скрывает всплывающую метку, пока ползунок не начинают двигать — зажмите
+      или перетащите ползунок, чтобы увидеть значение, отпустите, чтобы метка снова скрылась.</p>
+    <input class="ranger-input" type="range" id="label-on-drag" min="0" max="100" step="1" value="50"/>
+  </section>
 
   <script>
   document.addEventListener('DOMContentLoaded', function() {
-      document.querySelectorAll('.ranger-input').forEach(slide => new SliderController(slide));
+    new Ranger('#single');
+
+    new Ranger('#temperature', {
+      scaleTickSuffix: '°',
+      labelSuffix: '°',
+    });
+
+    new Ranger('#ages', {
+      fromInput: document.getElementById('fromInput'),
+      toInput: document.getElementById('toInput'),
+      scaleTicksCount: 5,
+    });
+
+    new Ranger('#close-range');
+
+    new Ranger('#minimal', {
+      scaleTicksCount: 0,
+      labelIsVisible: false,
+    });
+
+    new Ranger('#disabled-range', { disabled: true });
+
+    var animatedScale = {
+      scaleTicksCount: 10,
+      scaleMinorTicksCount: 2,
+      scaleAnimatedTicksCount: 3,
+      classes: {
+        scaleTick: 'ranger-scale-tick ranger-scale-tick--animated',
+        scaleTickMinor: 'ranger-scale-tick ranger-scale-tick--minor ranger-scale-tick--animated',
+      },
+    };
+
+    new Ranger('#equalizer', animatedScale);
+
+    new Ranger('#responsive', { scaleTicksCount: 20 });
+
+    new Ranger('#eq-single', animatedScale);
+    new Ranger('#eq-range', animatedScale);
+
+    new Ranger('#sizes', { values: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] });
+
+    new Ranger('#price', {
+      scaleTicksCount: 5,
+      format: function (value) { return '$' + value.toLocaleString(); },
+    });
+
+    new Ranger('#frequency', { logScale: true, scaleTicksCount: 8 });
+
+    new Ranger('#snap', { snapPoints: [25, 50, 75] });
+
+    new Ranger('#min-gap', { minGap: 15 });
+
+    new Ranger('#whole-range');
+
+    new Ranger('#fine-step', { fineStep: 1 });
+
+    new Ranger('#label-on-drag', { labelOnDragOnly: true });
   });
   </script>
 

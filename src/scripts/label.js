@@ -1,56 +1,89 @@
 import { createElement } from './helpers.js';
 
 /**
- * Create label section.
+ * Create the floating value label(s) above the slider handle(s).
  *
- * @param instance
- * @returns {HTMLAnchorElement|HTMLElement|HTMLAreaElement|HTMLAudioElement|HTMLBaseElement|HTMLQuoteElement|HTMLBodyElement|HTMLBRElement|HTMLButtonElement|HTMLCanvasElement|HTMLTableCaptionElement|HTMLTableColElement|HTMLDataElement|HTMLDataListElement|HTMLModElement|HTMLDetailsElement|HTMLDialogElement|HTMLDivElement|HTMLDListElement|HTMLEmbedElement|HTMLFieldSetElement|HTMLFormElement|HTMLHeadingElement|HTMLHeadElement|HTMLHRElement|HTMLHtmlElement|HTMLIFrameElement|HTMLImageElement|HTMLInputElement|HTMLLabelElement|HTMLLegendElement|HTMLLIElement|HTMLLinkElement|HTMLMapElement|HTMLMenuElement|HTMLMetaElement|HTMLMeterElement|HTMLObjectElement|HTMLOListElement|HTMLOptGroupElement|HTMLOptionElement|HTMLOutputElement|HTMLParagraphElement|HTMLPictureElement|HTMLPreElement|HTMLProgressElement|HTMLScriptElement|HTMLSelectElement|HTMLSlotElement|HTMLSourceElement|HTMLSpanElement|HTMLStyleElement|HTMLTableElement|HTMLTableSectionElement|HTMLTableCellElement|HTMLTemplateElement|HTMLTextAreaElement|HTMLTimeElement|HTMLTitleElement|HTMLTableRowElement|HTMLTrackElement|HTMLUListElement|HTMLVideoElement}
+ * @param {object} instance
+ * @returns {HTMLElement}
  */
 export const createLabel = (instance) => {
-  let label = createElement('div', instance.classes.label);
+  const label = createElement('div', instance.classes.label);
 
-  if (instance.labelIsVisible) {
-    let labelStart = createElement('div', instance.classes.labelTick);
-    let labelEnd   = createElement('div', instance.classes.labelTick);
+  instance.labelFrom = label.appendChild(createElement('div', instance.classes.labelTick));
+  instance.fromSlider.addEventListener('input', () => calcPositions(instance));
 
-    instance.labelMin = label.appendChild(labelStart);
-    instance.labelMax = label.appendChild(labelEnd);
+  if (instance.isRange) {
+    instance.labelTo = label.appendChild(createElement('div', instance.classes.labelTick));
+    instance.toSlider.addEventListener('input', () => calcPositions(instance));
   }
-  instance.wrapper.appendChild(label);
 
+  instance.wrapper.appendChild(label);
   calcPositions(instance);
 
-  [instance.fromSlider, instance.toSlider].forEach(el => el.addEventListener('input', () => calcPositions(instance)));
+  if (instance.labelOnDragOnly) {
+    bindDragVisibility(instance, label);
+  }
 
   return label;
-}
+};
 
-const calcPositions = ({ fromSlider, toSlider, labelMin, labelMax, labelPrefix, labelSuffix }) => {
+const NAVIGATION_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
+
+// Keeps the label hidden except while a handle is actively being dragged or
+// nudged via keyboard. Uses `display`, not `visibility` — the collision-merge
+// logic above sets labelTo's own `visibility` directly, and a descendant's
+// explicit `visibility: visible` overrides an ancestor's `hidden`, which
+// `display: none` doesn't allow.
+const bindDragVisibility = (instance, label) => {
+  label.style.display = 'none';
+
+  const show = () => {
+    label.style.display = '';
+    calcPositions(instance);
+  };
+  const hide = () => {
+    label.style.display = 'none';
+  };
+
+  [instance.fromSlider, instance.toSlider].filter(Boolean).forEach((slider) => {
+    slider.addEventListener('pointerdown', show);
+    slider.addEventListener('keydown', (event) => NAVIGATION_KEYS.includes(event.key) && show());
+    slider.addEventListener('keyup', (event) => NAVIGATION_KEYS.includes(event.key) && hide());
+  });
+
+  document.addEventListener('pointerup', hide);
+};
+
+const calcPositions = (instance) => {
+  const { fromSlider, toSlider, labelFrom, labelTo, labelPrefix, labelSuffix, format } = instance;
+  const formatValue = (value) => format ? format(Number(value)) : `${labelPrefix}${value}${labelSuffix}`;
+
   const setLabelStyle = (label, value, percent) => {
-    label.innerText  = `${labelPrefix}${value}${labelSuffix}`;
+    label.innerText = formatValue(value);
     label.style.left = `calc(${percent}% - ${label.offsetWidth / 2}px)`;
   };
 
-  const calcMin = calculatePercent(+fromSlider.min, +fromSlider.max, +fromSlider.value);
-  const calcMax = calculatePercent(+toSlider.min, +toSlider.max, +toSlider.value);
+  const percentFrom = calculatePercent(+fromSlider.min, +fromSlider.max, +fromSlider.value);
+  setLabelStyle(labelFrom, fromSlider.value, percentFrom);
 
-  setLabelStyle(labelMin, fromSlider.value, calcMin);
-  setLabelStyle(labelMax, toSlider.value, calcMax);
+  if (!instance.isRange) {
+    return;
+  }
 
-  const distanceX = labelMax.getBoundingClientRect().left - labelMin.getBoundingClientRect().right;
+  const percentTo = calculatePercent(+toSlider.min, +toSlider.max, +toSlider.value);
+  setLabelStyle(labelTo, toSlider.value, percentTo);
+
+  const distanceX = labelTo.getBoundingClientRect().left - labelFrom.getBoundingClientRect().right;
 
   if (distanceX < 10) {
-    const adjustedCalcMax = calcMin + (labelMin.offsetWidth / fromSlider.offsetWidth) * 100;
-    setLabelStyle(labelMax, toSlider.value, adjustedCalcMax);
+    labelFrom.innerText = fromSlider.value === toSlider.value
+      ? formatValue(fromSlider.value)
+      : `${formatValue(fromSlider.value)} – ${formatValue(toSlider.value)}`;
 
-    labelMin.innerText = fromSlider.value === toSlider.value
-      ? `${labelPrefix}${fromSlider.value}${labelSuffix}`
-      : `${labelPrefix}${fromSlider.value}${labelSuffix} – ${labelPrefix}${toSlider.value}${labelSuffix}`;
-
-    labelMin.style.left = `calc(${calcMin}% + ${(calcMax - calcMin) / 2}% - ${labelMin.offsetWidth / 2}px)`;
-    labelMax.style.visibility = 'hidden';
+    labelFrom.style.left = `calc(${percentFrom}% + ${(percentTo - percentFrom) / 2}% - ${labelFrom.offsetWidth / 2}px)`;
+    labelTo.style.visibility = 'hidden';
   } else {
-    labelMax.style.visibility = 'visible';
+    labelTo.style.visibility = 'visible';
   }
 };
 

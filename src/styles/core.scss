@@ -1,59 +1,125 @@
+// Shared thumb look. Kept as a mixin (not @extend) so each vendor
+// pseudo-element still gets its own separate rule — Firefox and Chrome both
+// drop an entire selector list if it contains a pseudo-element they don't
+// recognize, so `::-webkit-slider-thumb, ::-moz-range-thumb { … }` can't
+// be combined into one rule.
+@mixin ranger-thumb {
+	pointer-events: all;
+	width: 1.25rem;
+	height: 1.25rem;
+	cursor: pointer;
+	background-color: #fff;
+	background-position: center;
+	background-repeat: no-repeat;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath stroke='%23bbb' d='M4.5 2v8M7.5 2v8'/%3E%3C/svg%3E");
+	border: 1px solid #bbb;
+	border-radius: 4px;
+	box-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
+}
+
 .ranger {
-	display: flex;
+	background-color: #f1f1f1;
+	border-radius: 3px;
+	cursor: pointer;
+	height: 10px;
+	margin-bottom: 2rem;
 	position: relative;
-	flex-wrap: wrap;
+
+	&.is-disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	// When both handles land on the exact same value, they occupy the same
+	// pixel and whichever has the higher z-index swallows every click —
+	// leaving the other one permanently unreachable. Split the shared hit
+	// area in half instead, so each handle stays independently grabbable
+	// (kept as 4 separate rules for the same cross-vendor reason as above).
+	&.is-overlapping {
+		.ranger-input:not(.ranger-input--to)::-webkit-slider-thumb {
+			clip-path: inset(0 50% 0 0);
+		}
+
+		.ranger-input:not(.ranger-input--to)::-moz-range-thumb {
+			clip-path: inset(0 50% 0 0);
+		}
+
+		.ranger-input--to::-webkit-slider-thumb {
+			clip-path: inset(0 0 0 50%);
+		}
+
+		.ranger-input--to::-moz-range-thumb {
+			clip-path: inset(0 0 0 50%);
+		}
+	}
+
+	// Colored progress fill — a dedicated layer so it can never paint over
+	// either handle, regardless of which handle's z-index is on top.
+	&-fill {
+		background-color: #0b6dea;
+		border-radius: 3px;
+		height: 100%;
+		left: 0;
+		pointer-events: none;
+		position: absolute;
+		top: 0;
+		touch-action: none;
+		z-index: 1;
+
+		// Range mode only (see is-draggable in index.js) — grab the fill to
+		// slide both handles together, keeping their distance fixed.
+		&.is-draggable {
+			cursor: grab;
+			pointer-events: auto;
+		}
+	}
 
 	&-input {
-		height: 10px;
-		margin-bottom: 2rem;
-		width: 100%;
-		background-color: #f1f1f1;
 		accent-color: #0b6dea;
-		border-radius: 3px;
-		padding: 0;
-		-webkit-appearance: none;
-		-moz-appearance: none;
 		appearance: none;
-		position: relative;
+		background: transparent;
+		border-radius: 3px;
+		height: 100%;
+		left: 0;
+		margin: 0;
+		padding: 0;
 		pointer-events: none;
-		z-index: 2;
-
-		&:first-child:not(:last-child) {
-			background-color: transparent;
-			z-index: 1;
-			position: absolute;
-		}
+		position: absolute;
+		top: 0;
+		width: 100%;
+		z-index: 3;
 
 		&::-webkit-slider-thumb {
 			-webkit-appearance: none;
 			appearance: none;
-			pointer-events: all;
-			width: 1.25rem;
-			height: 1.25rem;
-			cursor: pointer;
-			background-color: #fff;
-			background-position: center;
-			background-repeat: no-repeat;
-			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath stroke='%23bbb' d='M4.5 2v8M7.5 2v8'/%3E%3C/svg%3E");
-			border: 1px solid #bbb;
-			border-radius: 4px;
-			box-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
+			@include ranger-thumb;
 		}
 
 		&::-moz-range-thumb {
-
+			-moz-appearance: none;
+			appearance: none;
+			@include ranger-thumb;
 		}
 
-		&::-ms-thumb {
+		// Firefox paints its track/progress as separate pseudo-elements,
+		// independent of the input's own `background` — neutralize both so
+		// only our `.ranger-fill` layer is visible, with no default border.
+		&::-moz-range-track {
+			background: transparent;
+			border: none;
+			height: 100%;
+		}
 
+		&::-moz-range-progress {
+			background: transparent;
 		}
 
 		&::-webkit-slider-thumb:hover {
 			background-color: #f7f7f7;
 		}
 
-		&::-moz-range-progress {
-			background-color: #0b6dea;
+		&::-moz-range-thumb:hover {
+			background-color: #f7f7f7;
 		}
 	}
 
@@ -80,6 +146,7 @@
 		width: 100%;
 		z-index: -1;
 		padding-inline: 0.625rem;
+		box-sizing: border-box;
 
 		&-tick {
 			position: relative;
@@ -97,6 +164,30 @@
 				width: 1px;
 			}
 
+			// Minor (unlabeled) ticks inserted between major ones — shorter,
+			// same baseline, so the hierarchy reads at a glance.
+			&--minor::before {
+				height: 4px;
+			}
+
+			// Opt-in (add this class alongside scaleTick/scaleTickMinor via the
+			// `classes` option): reacts to the live --ranger-scale custom
+			// property (0–1, how close the nearest handle is) that every tick
+			// already carries — grows taller and more opaque as a handle
+			// passes by, for an equalizer-style effect.
+			&--animated::before {
+				background-color: #0b6dea;
+				height: calc(4px + var(--ranger-scale, 0) * 12px);
+				opacity: calc(0.35 + var(--ranger-scale, 0) * 0.65);
+				transition: height 0.15s ease-out, opacity 0.15s ease-out;
+			}
+
+			// Minor ticks animate too, just with a shorter baseline/peak so the
+			// major/minor hierarchy still reads once everything lights up.
+			&--minor.ranger-scale-tick--animated::before {
+				height: calc(2px + var(--ranger-scale, 0) * 8px);
+			}
+
 			&:last-child {
 				margin-left: -1px;
 				width: 0;
@@ -109,6 +200,29 @@
 				margin-top: 20px;
 				text-decoration: none;
 			}
+		}
+	}
+}
+
+.form_control {
+	display: flex;
+	gap: 1.5rem;
+	margin-top: 3rem;
+
+	&_container {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+
+		&__time {
+			color: #777;
+			font-size: 0.75rem;
+		}
+
+		&__time__input {
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			padding: 0.4rem 0.6rem;
 		}
 	}
 }

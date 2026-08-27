@@ -1,29 +1,34 @@
 /**
- * Create new element.
+ * Create a new DOM element.
  *
- * @param el
- * @param classes
- * @param content
- * @returns {HTMLAnchorElement | HTMLElement | HTMLAreaElement | HTMLAudioElement | HTMLBaseElement | HTMLQuoteElement | HTMLBodyElement | HTMLBRElement | HTMLButtonElement | HTMLCanvasElement | HTMLTableCaptionElement | HTMLTableColElement | HTMLDataElement | HTMLDataListElement | HTMLModElement | HTMLDetailsElement | HTMLDialogElement | HTMLDivElement | HTMLDListElement | HTMLEmbedElement | HTMLFieldSetElement | HTMLFormElement | HTMLHeadingElement | HTMLHeadElement | HTMLHRElement | HTMLHtmlElement | HTMLIFrameElement | HTMLImageElement | HTMLInputElement | HTMLLabelElement | HTMLLegendElement | HTMLLIElement | HTMLLinkElement | HTMLMapElement | HTMLMenuElement | HTMLMetaElement | HTMLMeterElement | HTMLObjectElement | HTMLOListElement | HTMLOptGroupElement | HTMLOptionElement | HTMLOutputElement | HTMLParagraphElement | HTMLPictureElement | HTMLPreElement | HTMLProgressElement | HTMLScriptElement | HTMLSelectElement | HTMLSlotElement | HTMLSourceElement | HTMLSpanElement | HTMLStyleElement | HTMLTableElement | HTMLTableSectionElement | HTMLTableCellElement | HTMLTemplateElement | HTMLTextAreaElement | HTMLTimeElement | HTMLTitleElement | HTMLTableRowElement | HTMLTrackElement | HTMLUListElement | HTMLVideoElement}
+ * @param {string} tag
+ * @param {string} [classes]
+ * @param {string} [content]
+ * @returns {HTMLElement}
  */
-export const createElement = (el, classes, content ='') => {
-  let element = document.createElement(el);
+export const createElement = (tag, classes, content = '') => {
+  const element = document.createElement(tag);
+
   if (classes) {
     element.className = classes;
   }
+
   if (content) {
     element.innerHTML = content;
   }
   return element;
-}
+};
 
 /**
- * Round numbers.
+ * Round a value to the precision of the given step (supports "any").
  *
- * @param value
- * @param step
+ * @param {number|string} value
+ * @param {number|string} step
  * @returns {number}
  */
 export const roundToStep = (value, step) => {
-  return parseFloat(parseFloat(value).toFixed(step % 1 === 0 ? 0 : step.toString().split('.')[1].length));
+  const stepString = String(step);
+  const decimals = stepString.includes('.') ? stepString.split('.')[1].length : 0;
+
+  return parseFloat(Number(value).toFixed(decimals));
 };

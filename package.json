@@ -1,7 +1,14 @@
 {
-  "name": "webpack-starter",
-  "version": "1.0.0",
-  "description": "starter boilerplate",
+  "name": "ranger.js",
+  "version": "2.0.0",
+  "description": "Lightweight, zero-dependency JS library for input range sliders with one or two drag handles.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yanaleksandrov/ranger.js.git"
+  },
+  "homepage": "https://github.com/yanaleksandrov/ranger.js",
+  "bugs": "https://github.com/yanaleksandrov/ranger.js/issues",
+  "keywords": ["range", "slider", "input", "dual-range", "vanilla-js"],
   "scripts": {
     "watch": "webpack --mode development --watch",
     "start": "webpack serve --no-client-overlay-warnings",
