@@ -77,8 +77,8 @@ describe('construction', () => {
     const rangerA = new Ranger(makeInput({ min: 0, max: 100, value: 20 }), { labelPrefix: 'A-' });
     const rangerB = new Ranger(makeInput({ min: 0, max: 100, value: 20 }));
 
-    expect(rangerA.labelFrom.innerText).toBe('A-20');
-    expect(rangerB.labelFrom.innerText).toBe('20');
+    expect(rangerA.labelFrom.innerHTML).toBe('A-20');
+    expect(rangerB.labelFrom.innerHTML).toBe('20');
   });
 });
 
@@ -198,12 +198,12 @@ describe('values option (index picker)', () => {
 
   it('formats the display value as the values-array entry at that index', () => {
     const ranger = new Ranger(makeInput({ value: 2 }), { values: ['S', 'M', 'L', 'XL'] });
-    expect(ranger.labelFrom.innerText).toBe('L');
+    expect(ranger.labelFrom.innerHTML).toBe('L');
   });
 
   it('keeps a user-supplied format function instead of the auto-generated indexer', () => {
     const ranger = new Ranger(makeInput({ value: 2 }), { values: ['S', 'M', 'L', 'XL'], format: (i) => `idx${i}` });
-    expect(ranger.labelFrom.innerText).toBe('idx2');
+    expect(ranger.labelFrom.innerHTML).toBe('idx2');
   });
 });
 
@@ -911,5 +911,351 @@ describe('fixedRange', () => {
     ranger.fromSlider.dispatchEvent(new Event('input'));
 
     expect(Number(ranger.toSlider.value)).toBe(70); // the fixed 30-wide gap, not minGap's 90
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setValue / setRange — public API for moving handles programmatically
+// ---------------------------------------------------------------------------
+
+describe('setValue / setRange', () => {
+  it('setValue moves the single handle through the normal pipeline', () => {
+    const onChange = vi.fn();
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20 }), { onChange });
+
+    ranger.setValue(70);
+
+    expect(ranger.fromSlider.value).toBe('70');
+    expect(ranger.fill.style.width).toBe('70%');
+    expect(onChange).toHaveBeenCalledWith(70, ranger.fromSlider);
+  });
+
+  it('setValue resolves through step/snapPoints like any other change', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 0, step: 1 }), {
+      snapPoints: [50],
+      snapThreshold: 1,
+    });
+
+    ranger.setValue(48);
+
+    expect(ranger.fromSlider.value).toBe('50');
+  });
+
+  it('setRange moves both handles at once', () => {
+    const onChange = vi.fn();
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 30 }), { onChange });
+
+    ranger.setRange(40, 50);
+
+    expect(ranger.fromSlider.value).toBe('40');
+    expect(ranger.toSlider.value).toBe('50');
+    expect(onChange).toHaveBeenLastCalledWith([40, 50], ranger.toSlider);
+  });
+
+  it('does not corrupt the pair when minGap would otherwise clamp against the stale value', () => {
+    // Regression guard: dispatching on fromSlider before toSlider is updated
+    // would clamp against toSlider's OLD value instead of the new target.
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 30 }), { minGap: 5 });
+
+    ranger.setRange(40, 50);
+
+    expect(ranger.fromSlider.value).toBe('40');
+    expect(ranger.toSlider.value).toBe('50');
+  });
+
+  it('setRange throws on a single-handle slider', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20 }));
+    expect(() => ranger.setRange(10, 20)).toThrow(/requires a range slider/);
+  });
+
+  it('setRange keeps the fixedRange gap fixed regardless of the values passed', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+      fixedRange: true,
+    });
+
+    ranger.setRange(40, 999);
+
+    expect(Number(ranger.fromSlider.value)).toBe(40);
+    expect(Number(ranger.toSlider.value)).toBe(70);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// update() — patches options after mount
+// ---------------------------------------------------------------------------
+
+describe('update()', () => {
+  it('updates min/max on both handles and re-clamps out-of-range values', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 90, 'data-max-value': 95 }));
+
+    ranger.update({ min: 0, max: 50 });
+
+    expect(ranger.fromSlider.min).toBe('0');
+    expect(ranger.fromSlider.max).toBe('50');
+    expect(ranger.toSlider.max).toBe('50');
+    expect(Number(ranger.fromSlider.value)).toBeLessThanOrEqual(50);
+    expect(Number(ranger.toSlider.value)).toBeLessThanOrEqual(50);
+  });
+
+  it('toggles disabled on both handles, the wrapper class, and whole-range dragging', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 60 }));
+    mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
+
+    ranger.update({ disabled: true });
+
+    expect(ranger.fromSlider.disabled).toBe(true);
+    expect(ranger.toSlider.disabled).toBe(true);
+    expect(ranger.wrapper.classList.contains('is-disabled')).toBe(true);
+
+    const before = { from: ranger.fromSlider.value, to: ranger.toSlider.value };
+    ranger.fill.dispatchEvent(new PointerEvent('pointerdown', { clientX: 0, pointerId: 1, bubbles: true }));
+    ranger.fill.dispatchEvent(new PointerEvent('pointermove', { clientX: 30, pointerId: 1 }));
+
+    expect(ranger.fromSlider.value).toBe(before.from);
+    expect(ranger.toSlider.value).toBe(before.to);
+  });
+
+  it('re-enables whole-range dragging when disabled is turned back off', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 60 }), {
+      disabled: true,
+    });
+    mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
+
+    ranger.update({ disabled: false });
+
+    ranger.fill.dispatchEvent(new PointerEvent('pointerdown', { clientX: 0, pointerId: 1, bubbles: true }));
+    ranger.fill.dispatchEvent(new PointerEvent('pointermove', { clientX: 30, pointerId: 1 }));
+
+    expect(Number(ranger.fromSlider.value)).toBe(50);
+    expect(Number(ranger.toSlider.value)).toBe(90);
+  });
+
+  it('applies new snapPoints on the very next drag', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 0, step: 1 }));
+
+    ranger.update({ snapPoints: [42], snapThreshold: 1 });
+    ranger.fromSlider.value = 40;
+    ranger.fromSlider.dispatchEvent(new Event('input'));
+
+    expect(ranger.fromSlider.value).toBe('42');
+  });
+
+  it('creates the scale when scaleTicksCount goes from 0 to > 0', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { scaleTicksCount: 0 });
+    expect(ranger.scale).toBeUndefined();
+
+    ranger.update({ scaleTicksCount: 5 });
+
+    expect(ranger.scale).toBeTruthy();
+    expect(ranger.scaleTicks).toHaveLength(6);
+  });
+
+  it('removes the scale when scaleTicksCount goes to 0', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { scaleTicksCount: 5 });
+    const oldScale = ranger.scale;
+
+    ranger.update({ scaleTicksCount: 0 });
+
+    expect(ranger.scale).toBeNull();
+    expect(ranger.wrapper.contains(oldScale)).toBe(false);
+  });
+
+  it('rebuilds the scale ticks when min/max change', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { scaleTicksCount: 2 });
+
+    ranger.update({ min: 0, max: 10 });
+
+    expect(ranger.scaleTicks.map((t) => t.value)).toEqual([0, 5, 10]);
+  });
+
+  it('creates the label when labelIsVisible goes from false to true', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { labelIsVisible: false });
+    expect(ranger.label).toBeUndefined();
+
+    ranger.update({ labelIsVisible: true });
+
+    expect(ranger.label).toBeTruthy();
+    expect(ranger.labelFrom.innerHTML).toBe('50');
+  });
+
+  it('removes the label when labelIsVisible goes from true to false', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }));
+    const oldLabel = ranger.label;
+
+    ranger.update({ labelIsVisible: false });
+
+    expect(ranger.label).toBeNull();
+    expect(ranger.wrapper.contains(oldLabel)).toBe(false);
+  });
+
+  it('re-derives rangeSize when fixedRange is turned on after mount', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 65 }));
+
+    ranger.update({ fixedRange: true });
+    expect(ranger.rangeSize).toBe(45);
+
+    ranger.fromSlider.value = 30;
+    ranger.fromSlider.dispatchEvent(new Event('input'));
+    expect(Number(ranger.toSlider.value)).toBe(75);
+  });
+
+  it('re-derives min/max/step and the scale when values is swapped in', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20 }));
+
+    ranger.update({ values: ['XS', 'S', 'M', 'L'] });
+
+    expect(ranger.fromSlider.min).toBe('0');
+    expect(ranger.fromSlider.max).toBe('3');
+    expect(ranger.scaleTicksCount).toBe(3);
+    expect(ranger.scaleTicks).toHaveLength(4);
+  });
+
+  it('merges new classes without dropping the rest', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }));
+
+    ranger.update({ classes: { fill: 'custom-fill' } });
+
+    expect(ranger.classes.fill).toBe('custom-fill');
+    expect(ranger.classes.container).toBe('ranger');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// marks — fixed points on the track, independent of the tick scale
+// ---------------------------------------------------------------------------
+
+describe('marks', () => {
+  it('creates one element per mark, positioned by percentage', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [25, 75] });
+
+    expect(ranger.marksContainer).toBeTruthy();
+    const marks = ranger.marksContainer.querySelectorAll('.ranger-mark');
+    expect(marks).toHaveLength(2);
+    expect(marks[0].style.insetInlineStart).toBe('25%');
+    expect(marks[1].style.insetInlineStart).toBe('75%');
+  });
+
+  it('accepts the object form with an optional label and className', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
+      marks: [{ value: 60, label: 'Recommended', className: 'ranger-mark--highlight' }],
+    });
+
+    const mark = ranger.marksContainer.querySelector('.ranger-mark');
+    expect(mark.style.insetInlineStart).toBe('60%');
+    expect(mark.classList.contains('ranger-mark--highlight')).toBe(true);
+    expect(mark.querySelector('ins').textContent).toBe('Recommended');
+  });
+
+  it('supports mixing plain numbers and objects in the same array', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
+      marks: [10, { value: 90, label: 'Max' }],
+    });
+
+    const marks = ranger.marksContainer.querySelectorAll('.ranger-mark');
+    expect(marks[0].querySelector('ins')).toBeNull();
+    expect(marks[1].querySelector('ins').textContent).toBe('Max');
+  });
+
+  it('is not created when marks is empty', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }));
+    expect(ranger.marksContainer).toBeUndefined();
+  });
+
+  it('is independent of the tick scale — works with scaleTicksCount: 0', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
+      marks: [33],
+      scaleTicksCount: 0,
+    });
+
+    expect(ranger.scale).toBeUndefined();
+    expect(ranger.marksContainer.querySelectorAll('.ranger-mark')).toHaveLength(1);
+  });
+
+  it('rebuilds at the new positions when min/max change via update()', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [50] });
+
+    ranger.update({ min: 0, max: 200 });
+
+    const mark = ranger.marksContainer.querySelector('.ranger-mark');
+    expect(mark.style.insetInlineStart).toBe('25%'); // 50 is now a quarter of 0..200
+  });
+
+  it('can be added, and later removed, via update()', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }));
+    expect(ranger.marksContainer).toBeUndefined();
+
+    ranger.update({ marks: [40] });
+    expect(ranger.marksContainer).toBeTruthy();
+
+    const container = ranger.marksContainer;
+    ranger.update({ marks: [] });
+    expect(ranger.marksContainer).toBeNull();
+    expect(ranger.wrapper.contains(container)).toBe(false);
+  });
+
+  it('renders a { from, to } mark as a zone spanning that width, not a point', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
+      marks: [{ from: 20, to: 60 }],
+    });
+
+    const mark = ranger.marksContainer.querySelector('.ranger-mark');
+    expect(mark.style.insetInlineStart).toBe('20%');
+    expect(mark.style.width).toBe('40%');
+    expect(mark.classList.contains('ranger-mark--range')).toBe(true);
+  });
+
+  it('gives a point mark no explicit width, unlike a zone mark', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [30] });
+
+    const mark = ranger.marksContainer.querySelector('.ranger-mark');
+    expect(mark.style.width).toBe('');
+    expect(mark.classList.contains('ranger-mark--range')).toBe(false);
+  });
+
+  it('supports a labeled, custom-classed zone mark', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
+      marks: [{ from: 10, to: 40, label: 'Comfort zone', className: 'my-zone' }],
+    });
+
+    const mark = ranger.marksContainer.querySelector('.ranger-mark');
+    expect(mark.classList.contains('ranger-mark--range')).toBe(true);
+    expect(mark.classList.contains('my-zone')).toBe(true);
+    expect(mark.querySelector('ins').textContent).toBe('Comfort zone');
+  });
+
+  it('mixes point and zone marks in the same array', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
+      marks: [15, { from: 40, to: 60 }],
+    });
+
+    const marks = ranger.marksContainer.querySelectorAll('.ranger-mark');
+    expect(marks).toHaveLength(2);
+    expect(marks[0].classList.contains('ranger-mark--range')).toBe(false);
+    expect(marks[1].classList.contains('ranger-mark--range')).toBe(true);
+    expect(marks[1].style.insetInlineStart).toBe('40%');
+    expect(marks[1].style.width).toBe('20%');
+  });
+
+  it('respects a custom classes.markRange', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
+      marks: [{ from: 0, to: 50 }],
+      classes: { markRange: 'my-zone-class' },
+    });
+
+    const mark = ranger.marksContainer.querySelector('.my-zone-class');
+    expect(mark).toBeTruthy();
+    expect(mark.classList.contains('ranger-mark--range')).toBe(false);
+  });
+
+  it('rebuilds zone width/position when min/max change via update()', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
+      marks: [{ from: 25, to: 75 }],
+    });
+
+    ranger.update({ min: 0, max: 200 });
+
+    const mark = ranger.marksContainer.querySelector('.ranger-mark');
+    expect(mark.style.insetInlineStart).toBe('12.5%');
+    expect(mark.style.width).toBe('25%');
   });
 });

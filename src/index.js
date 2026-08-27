@@ -18,6 +18,9 @@ export default class Ranger {
       scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor',
       label: 'ranger-label',
       labelItem: 'ranger-label-item',
+      mark: 'ranger-marks',
+      markItem: 'ranger-mark',
+      markRange: 'ranger-mark ranger-mark--range',
     },
 
     scaleTickPrefix: '',
@@ -56,6 +59,9 @@ export default class Ranger {
 
     // Range mode: locks the handle gap so dragging either one slides, not resizes, the range.
     fixedRange: false,
+
+    // Fixed points/zones, independent of the tick scale: { value } for a point, { from, to } for a zone.
+    marks: [],
 
     // External <input> elements kept in sync with the lower/single and upper handles.
     fromInput: null,
@@ -123,8 +129,9 @@ export default class Ranger {
 
     Object.assign(this, Ranger.DEFAULTS, options, {
       classes: { ...Ranger.DEFAULTS.classes, ...options.classes },
-      // Cloned per instance — DEFAULTS.snapPoints is one shared array otherwise.
+      // Cloned per instance — DEFAULTS.snapPoints/marks are shared arrays otherwise.
       snapPoints: options.snapPoints ? [...options.snapPoints] : [],
+      marks: options.marks ? [...options.marks] : [],
     });
 
     // One major tick per value by default, else fractional indexes round to duplicate values.
@@ -143,6 +150,106 @@ export default class Ranger {
   // Whether the slider flows RTL, inherited via CSS from an ancestor's dir attribute.
   get isRTL() {
     return getComputedStyle(this.wrapper).direction === 'rtl';
+  }
+
+  // Moves the single/lower handle through the normal pipeline (resolveValue, fillSlider, emitChange, ...).
+  setValue(value) {
+    this.fromSlider.value = value;
+    this.fromSlider.dispatchEvent(new Event('input'));
+  }
+
+  // Moves both handles; both raw values are set before either dispatches so minGap/fixedRange see the real pair.
+  setRange(from, to) {
+    if (!this.isRange) {
+      throw new Error('Ranger: setRange() requires a range slider (data-max-value)');
+    }
+
+    this.fromSlider.value = from;
+    this.toSlider.value = to;
+    this.fromSlider.dispatchEvent(new Event('input'));
+    this.toSlider.dispatchEvent(new Event('input'));
+  }
+
+  // Applies an options patch after mount; rebuilds the scale/marks/label when something baked into their DOM changes.
+  update({ min, max, step, ...options } = {}) {
+    const rebuildsScale = ['values', 'scaleTicksCount', 'scaleMinorTicksCount', 'format', 'scaleTickPrefix', 'scaleTickSuffix'].some((key) => key in options) || min !== undefined || max !== undefined;
+    const rebuildsMarks = min !== undefined || max !== undefined || 'values' in options || 'marks' in options;
+
+    Object.assign(this, options, {
+      classes: options.classes ? { ...this.classes, ...options.classes } : this.classes,
+      snapPoints: options.snapPoints ? [...options.snapPoints] : this.snapPoints,
+      marks: options.marks ? [...options.marks] : this.marks,
+    });
+
+    if (options.values) {
+      this.fromSlider.min = 0;
+      this.fromSlider.max = this.values.length - 1;
+      this.step = 1;
+      if (!('scaleTicksCount' in options)) {
+        this.scaleTicksCount = this.values.length - 1;
+      }
+    } else {
+      if (min !== undefined) {
+        this.fromSlider.min = min;
+      }
+      if (max !== undefined) {
+        this.fromSlider.max = max;
+      }
+    }
+    if (this.toSlider) {
+      this.toSlider.min = this.fromSlider.min;
+      this.toSlider.max = this.fromSlider.max;
+    }
+    if (step !== undefined) {
+      this.step = step;
+    }
+
+    if ('disabled' in options) {
+      this.fromSlider.disabled = this.disabled;
+      if (this.toSlider) {
+        this.toSlider.disabled = this.disabled;
+      }
+      this.wrapper.classList.toggle('is-disabled', this.disabled);
+    }
+
+    // Re-derives rangeSize the same way initialize() does, in case fixedRange just turned on.
+    if ('fixedRange' in options && this.isRange) {
+      this.rangeSize = typeof this.fixedRange === 'number'
+        ? this.fixedRange
+        : Number(this.toSlider.value) - Number(this.fromSlider.value);
+    }
+
+    if ('labelIsVisible' in options) {
+      if (this.labelIsVisible && !this.label) {
+        this.label = this.createLabel();
+      } else if (!this.labelIsVisible && this.label) {
+        this.label.remove();
+        this.label = this.labelFrom = this.labelTo = null;
+      }
+    }
+
+    const wantsScale = this.scaleTicksCount > 0;
+    if (wantsScale && (rebuildsScale || !this.scale)) {
+      this.scale?.remove();
+      this.scale = this.createScale();
+    } else if (!wantsScale && this.scale) {
+      this.scale.remove();
+      this.scale = null;
+    }
+
+    const wantsMarks = this.marks.length > 0;
+    if (wantsMarks && (rebuildsMarks || !this.marksContainer)) {
+      this.marksContainer?.remove();
+      this.marksContainer = this.createMarks();
+    } else if (!wantsMarks && this.marksContainer) {
+      this.marksContainer.remove();
+      this.marksContainer = null;
+    }
+
+    this.fromSlider.dispatchEvent(new Event('input'));
+    if (this.isRange) {
+      this.toSlider.dispatchEvent(new Event('input'));
+    }
   }
 
   initialize() {
@@ -229,6 +336,9 @@ export default class Ranger {
     if (this.scaleTicksCount > 0) {
       this.scale = this.createScale();
     }
+    if (this.marks.length > 0) {
+      this.marksContainer = this.createMarks();
+    }
   }
 
   /**
@@ -256,9 +366,8 @@ export default class Ranger {
       this.toSlider.addEventListener('keydown', (event) => this.handleKeydown(event, this.toSlider));
       this.toSlider.addEventListener('dblclick', () => this.resetSlider(this.toSlider, this.defaultToValue));
 
-      if (!this.disabled) {
-        this.fill.addEventListener('pointerdown', (event) => this.handleFillDragStart(event));
-      }
+      // Always attached; handleFillDragStart itself checks this.disabled, since update() can toggle it later.
+      this.fill.addEventListener('pointerdown', (event) => this.handleFillDragStart(event));
     }
 
     this.wrapper.addEventListener('click', (event) => this.handleTrackClick(event));
@@ -467,6 +576,9 @@ export default class Ranger {
 
   // Dragging the fill slides both handles together, keeping their distance fixed.
   handleFillDragStart(event) {
+    if (this.disabled) {
+      return;
+    }
     event.preventDefault();
 
     const startX = event.clientX;
@@ -611,11 +723,17 @@ export default class Ranger {
   }
 
   calcPositions() {
+    // Guards the input/resize listeners createLabel() wires up, which outlive update() removing the label.
+    if (!this.label) {
+      return;
+    }
+
     const { fromSlider, toSlider, labelFrom, labelTo, label } = this;
     const containerWidth = label.clientWidth;
 
     const setLabelStyle = (labelEl, value, percent) => {
-      labelEl.innerText = this.formatDisplayValue(value);
+      // innerHTML (not innerText) so a format()/prefix/suffix returning markup renders, not escapes.
+      labelEl.innerHTML = this.formatDisplayValue(value);
       this.positionLabel(labelEl, percent, containerWidth);
     };
 
@@ -635,7 +753,7 @@ export default class Ranger {
     const distanceX = Math.max(fromRect.left, toRect.left) - Math.min(fromRect.right, toRect.right);
 
     if (distanceX < 10) {
-      labelFrom.innerText = fromSlider.value === toSlider.value
+      labelFrom.innerHTML = fromSlider.value === toSlider.value
         ? this.formatDisplayValue(fromSlider.value)
         : `${this.formatDisplayValue(fromSlider.value)} – ${this.formatDisplayValue(toSlider.value)}`;
 
@@ -742,6 +860,39 @@ export default class Ranger {
     const max = Number(this.fromSlider.max);
 
     return Array.from({ length: segments + 1 }, (_, index) => min + ((max - min) / segments) * index);
+  }
+
+  // Fixed points/zones along the track (percent-positioned, so no resize handling is needed unlike labels).
+  createMarks() {
+    const container = Ranger.createElement('div', this.classes.mark);
+    container.setAttribute('aria-hidden', 'true');
+
+    const min = Number(this.fromSlider.min);
+    const max = Number(this.fromSlider.max);
+
+    this.marks.forEach((mark) => {
+      const { value, from, to, label, className } = typeof mark === 'object' ? mark : { value: mark };
+      const isZone = from !== undefined && to !== undefined;
+      const baseClass = isZone ? this.classes.markRange : this.classes.markItem;
+      const markEl = Ranger.createElement('span', [baseClass, className].filter(Boolean).join(' '));
+
+      if (isZone) {
+        const fromPercent = Ranger.calculatePercent(min, max, from);
+        const toPercent = Ranger.calculatePercent(min, max, to);
+        markEl.style.insetInlineStart = `${fromPercent}%`;
+        markEl.style.width = `${toPercent - fromPercent}%`;
+      } else {
+        markEl.style.insetInlineStart = `${Ranger.calculatePercent(min, max, value)}%`;
+      }
+
+      if (label) {
+        markEl.appendChild(Ranger.createElement('ins', '', label));
+      }
+      container.appendChild(markEl);
+    });
+
+    this.wrapper.appendChild(container);
+    return container;
   }
 }
 

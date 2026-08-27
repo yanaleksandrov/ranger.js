@@ -44,6 +44,7 @@
 	--ranger-thumb-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
 	--ranger-tick-color: #bdbdbd;
 	--ranger-tick-label-color: #333;
+	--ranger-mark-color: #f59e0b;
 }
 
 // "Coral" skin — a flatter, squared-off look (in the spirit of Ion.RangeSlider's
@@ -334,6 +335,54 @@
 				font-size: 11px;
 				margin-top: 24px;
 				text-decoration: none;
+			}
+		}
+	}
+
+	// A separate layer from &-scale — positions are arbitrary values from the `marks`
+	// option, not an evenly spaced grid, so ticks and marks can be used independently.
+	&-marks {
+		inset-inline: 0;
+		height: 100%;
+		pointer-events: none;
+		position: absolute;
+		top: 0;
+		z-index: 2;
+	}
+
+	&-mark {
+		background-color: var(--ranger-mark-color, var(--ranger-tick-color));
+		height: 100%;
+		position: absolute;
+		top: 0;
+		width: 2px;
+
+		// Anchored at the mark's own edge (not centered) — imperceptible at this
+		// width, and it sidesteps needing an RTL-aware transform to center it.
+		ins {
+			color: var(--ranger-tick-label-color);
+			font-size: 11px;
+			position: absolute;
+			white-space: nowrap;
+			bottom: 100%;
+			text-decoration: none;
+		}
+
+		// The `classes.markRange` default ({ from, to }) - width/inset are set
+		// inline per-mark in JS, so only the "zone" look lives here.
+		&--range {
+			opacity: 0.25;
+		}
+
+		// Opt-in (add via a mark's own `className`) - a wider, accent-colored
+		// variant for a single stand-out mark, e.g. a recommended value.
+		&--highlight {
+			background-color: var(--ranger-accent);
+			width: 4px;
+
+			ins {
+				color: var(--ranger-accent);
+				font-weight: 600;
 			}
 		}
 	}

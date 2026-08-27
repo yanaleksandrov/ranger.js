@@ -148,7 +148,7 @@ describe('createLabel (single handle)', () => {
 
     expect(ranger.label).toBeTruthy();
     expect(ranger.label.getAttribute('aria-hidden')).toBe('true');
-    expect(ranger.labelFrom.innerText).toBe('25');
+    expect(ranger.labelFrom.innerHTML).toBe('25');
     expect(ranger.labelTo).toBeUndefined();
   });
 
@@ -159,21 +159,21 @@ describe('createLabel (single handle)', () => {
     input.value = 80;
     input.dispatchEvent(new Event('input'));
 
-    expect(ranger.labelFrom.innerText).toBe('80');
+    expect(ranger.labelFrom.innerHTML).toBe('80');
   });
 
   it('applies labelPrefix and labelSuffix', () => {
     const input = makeInput({ min: 0, max: 100, value: 25 });
     const ranger = new Ranger(input, { labelPrefix: '$', labelSuffix: '.00' });
 
-    expect(ranger.labelFrom.innerText).toBe('$25.00');
+    expect(ranger.labelFrom.innerHTML).toBe('$25.00');
   });
 
   it('respects a custom format function', () => {
     const input = makeInput({ min: 0, max: 100, value: 25 });
     const ranger = new Ranger(input, { format: (v) => `${v}%` });
 
-    expect(ranger.labelFrom.innerText).toBe('25%');
+    expect(ranger.labelFrom.innerHTML).toBe('25%');
   });
 
   it('is not created when labelIsVisible is false', () => {
@@ -199,8 +199,8 @@ describe('createLabel (range)', () => {
     mockRect(ranger.labelTo, { left: 200, right: 220 });
     ranger.fromSlider.dispatchEvent(new Event('input'));
 
-    expect(ranger.labelFrom.innerText).toBe('20');
-    expect(ranger.labelTo.innerText).toBe('80');
+    expect(ranger.labelFrom.innerHTML).toBe('20');
+    expect(ranger.labelTo.innerHTML).toBe('80');
   });
 
   it('merges into a single "from – to" label when the two labels overlap/are close', () => {
@@ -216,7 +216,7 @@ describe('createLabel (range)', () => {
     ranger.toSlider.value = 80;
     ranger.toSlider.dispatchEvent(new Event('input'));
 
-    expect(ranger.labelFrom.innerText).toBe('20 – 80');
+    expect(ranger.labelFrom.innerHTML).toBe('20 – 80');
     expect(ranger.labelTo.style.visibility).toBe('hidden');
   });
 
@@ -229,7 +229,7 @@ describe('createLabel (range)', () => {
 
     ranger.fromSlider.dispatchEvent(new Event('input'));
 
-    expect(ranger.labelFrom.innerText).toBe('50');
+    expect(ranger.labelFrom.innerHTML).toBe('50');
   });
 
   it('shows both labels separately when they are far apart', () => {
@@ -242,8 +242,8 @@ describe('createLabel (range)', () => {
     ranger.fromSlider.dispatchEvent(new Event('input'));
 
     expect(ranger.labelTo.style.visibility).toBe('visible');
-    expect(ranger.labelFrom.innerText).toBe('10');
-    expect(ranger.labelTo.innerText).toBe('90');
+    expect(ranger.labelFrom.innerHTML).toBe('10');
+    expect(ranger.labelTo.innerHTML).toBe('90');
   });
 
   it('formats both labels through a custom format function', () => {
@@ -254,8 +254,8 @@ describe('createLabel (range)', () => {
     mockRect(ranger.labelTo, { left: 200, right: 220 });
     ranger.fromSlider.dispatchEvent(new Event('input'));
 
-    expect(ranger.labelFrom.innerText).toBe('L2');
-    expect(ranger.labelTo.innerText).toBe('L8');
+    expect(ranger.labelFrom.innerHTML).toBe('L2');
+    expect(ranger.labelTo.innerHTML).toBe('L8');
   });
 });
 
@@ -297,5 +297,45 @@ describe('labelOnDragOnly', () => {
 
     document.dispatchEvent(new PointerEvent('pointerup'));
     expect(ranger.label.classList.contains('is-idle')).toBe(true);
+  });
+});
+
+describe('rich (HTML) label content', () => {
+  it('renders markup returned by a custom format function as real elements, not escaped text', () => {
+    const input = makeInput({ min: 0, max: 100, value: 25 });
+    const ranger = new Ranger(input, { format: (v) => `<strong>${v}</strong> <small>km</small>` });
+
+    expect(ranger.labelFrom.querySelector('strong').textContent).toBe('25');
+    expect(ranger.labelFrom.querySelector('small').textContent).toBe('km');
+  });
+
+  it('renders markup in labelPrefix/labelSuffix as real elements too', () => {
+    const input = makeInput({ min: 0, max: 100, value: 25 });
+    const ranger = new Ranger(input, { labelPrefix: '<em>', labelSuffix: '</em>' });
+
+    expect(ranger.labelFrom.querySelector('em').textContent).toBe('25');
+  });
+
+  it('re-renders rich content on every value change', () => {
+    const input = makeInput({ min: 0, max: 100, value: 25 });
+    const ranger = new Ranger(input, { format: (v) => `<b>${v}</b>` });
+
+    input.value = 60;
+    input.dispatchEvent(new Event('input'));
+
+    expect(ranger.labelFrom.querySelector('b').textContent).toBe('60');
+  });
+
+  it('carries rich content through the close-handle merge too', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 48, 'data-max-value': 52 }), {
+      format: (v) => `<i>${v}</i>`,
+    });
+    mockRect(ranger.labelFrom, { left: 40, right: 60 });
+    mockRect(ranger.labelTo, { left: 45, right: 65 });
+    ranger.fromSlider.dispatchEvent(new Event('input'));
+
+    const italics = ranger.labelFrom.querySelectorAll('i');
+    expect(italics).toHaveLength(2);
+    expect([...italics].map((el) => el.textContent)).toEqual(['48', '52']);
   });
 });

@@ -127,8 +127,34 @@
     <input class="ranger-input" type="range" id="risk" min="0" max="100" step="1" value="40"/>
   </section>
 
+  <section>
+    <h2>14. Метки, зоны и HTML-подпись</h2>
+    <p><code>marks</code> добавляет фиксированные точки и зоны на дорожку независимо от шкалы делений —
+      здесь отмечены типичный бюджет (300), рекомендованный (700, выделен своим <code>className</code>)
+      и «комфортная зона» 200–500 через <code>{ from, to }</code>. <code>format</code> при этом
+      возвращает HTML — всплывающая подпись рендерит его как разметку, а не показывает как
+      экранированный текст.</p>
+    <input class="ranger-input" type="range" id="budget" min="0" max="1000" step="10" value="450"/>
+  </section>
+
+  <section>
+    <h2>15. Программное управление: setValue, setRange, update()</h2>
+    <p><code>setValue</code>/<code>setRange</code> двигают ручки в обход перетаскивания — через тот же
+      конвейер, что и обычное взаимодействие. <code>update(options)</code> меняет опции уже
+      смонтированного слайдера: «Отключить» переключает <code>disabled</code>, «×2 максимум» удваивает
+      <code>max</code> обоих слайдеров ниже и перестраивает их шкалу.</p>
+    <input class="ranger-input" type="range" id="api-single" min="0" max="100" step="1" value="50"/>
+    <input class="ranger-input" type="range" id="api-range" min="0" max="100" step="1" value="20" data-max-value="60"/>
+    <div class="form_control">
+      <button type="button" id="api-set-value">setValue(80)</button>
+      <button type="button" id="api-set-range">setRange(30, 70)</button>
+      <button type="button" id="api-toggle-disabled">update: disabled</button>
+      <button type="button" id="api-double-max">update: max ×2</button>
+    </div>
+  </section>
+
   <section dir="rtl">
-    <h2>13. Callback-и и поддержка RTL</h2>
+    <h2>16. Callback-и и поддержка RTL</h2>
     <p>Потяните или сфокусируйте ползунок клавиатурой — каждое событие (<code>onStart</code>,
       <code>onChange</code>, <code>onEnd</code>, <code>onFocus</code>, <code>onBlur</code>) логируется
       ниже. Контейнер также имеет <code>dir="rtl"</code> — шкала, заливка, всплывающая подпись и
@@ -246,6 +272,36 @@
     });
 
     new Ranger('#risk', { fillGradient: 'linear-gradient(to right, #22c55e, #eab308, #ef4444)' });
+
+    new Ranger('#budget', {
+      scaleTicksCount: 5,
+      marks: [
+        { value: 700, label: 'Рекомендовано', className: 'ranger-mark--highlight' },
+        { from: 200, to: 500, label: 'Комфортная зона' },
+      ],
+      format: function (value) {
+        return '<strong>$' + value.toLocaleString() + '</strong>';
+      },
+    });
+
+    var apiSingle = new Ranger('#api-single');
+    var apiRange = new Ranger('#api-range');
+
+    document.getElementById('api-set-value').addEventListener('click', function () {
+      apiSingle.setValue(80);
+    });
+    document.getElementById('api-set-range').addEventListener('click', function () {
+      apiRange.setRange(30, 70);
+    });
+    document.getElementById('api-toggle-disabled').addEventListener('click', function () {
+      var next = !apiSingle.disabled;
+      apiSingle.update({ disabled: next });
+      apiRange.update({ disabled: next });
+    });
+    document.getElementById('api-double-max').addEventListener('click', function () {
+      apiSingle.update({ max: Number(apiSingle.fromSlider.max) * 2 });
+      apiRange.update({ max: Number(apiRange.fromSlider.max) * 2 });
+    });
 
     var callbacksLog = document.getElementById('callbacks-log');
     var logEvent = function (name) {
