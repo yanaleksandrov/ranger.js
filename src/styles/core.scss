@@ -47,6 +47,7 @@
 		margin: 0;
 		padding: 0;
 		width: 100%;
+		min-height: initial;
 
 		// Pre-init box: a real in-flow track matching `.ranger` below, so nothing shifts once JS swaps this for the absolute overlay.
 		background-color: var(--ranger-bg);
