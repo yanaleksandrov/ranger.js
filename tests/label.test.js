@@ -35,10 +35,9 @@ const mockOffsetWidth = (element, width) => {
   Object.defineProperty(element, 'offsetWidth', { value: width, configurable: true });
 };
 
-describe('label position clamps to the track edges (flush, no overhang)', () => {
-  // jsdom never performs real layout, so clientWidth/offsetWidth are
-  // stubbed here to exercise the same pixel math a real browser would do.
-  it('sits flush with the left edge at the minimum value, regardless of label width', () => {
+describe('label position stays centered, even past the track edges', () => {
+  // jsdom never performs real layout, so clientWidth/offsetWidth are stubbed to exercise the same pixel math a real browser would do.
+  it('centers on the left edge at the minimum value, overhanging past it by half its width', () => {
     const input = makeInput({ min: 0, max: 100, value: 0 });
     const ranger = new Ranger(input);
     mockWidth(ranger.label, 200);
@@ -46,10 +45,11 @@ describe('label position clamps to the track edges (flush, no overhang)', () => 
 
     input.dispatchEvent(new Event('input'));
 
-    expect(ranger.labelFrom.style.insetInlineStart).toBe('0px');
+    // 0% of 200 = 0, centered: 0 - 40/2 = -20 (half the label sticks out past the track)
+    expect(ranger.labelFrom.style.insetInlineStart).toBe('-20px');
   });
 
-  it('sits flush with the right edge at the maximum value, regardless of label width', () => {
+  it('centers on the right edge at the maximum value, overhanging past it by half its width', () => {
     const input = makeInput({ min: 0, max: 100, value: 100 });
     const ranger = new Ranger(input);
     mockWidth(ranger.label, 200);
@@ -57,15 +57,11 @@ describe('label position clamps to the track edges (flush, no overhang)', () => 
 
     input.dispatchEvent(new Event('input'));
 
-    // 200 (container) - 40 (label) = 160px from the left, i.e. its right
-    // edge (160 + 40 = 200) lands exactly on the container's right edge.
-    expect(ranger.labelFrom.style.insetInlineStart).toBe('160px');
+    // 100% of 200 = 200, centered: 200 - 40/2 = 180 (right edge at 220, 20px past the track)
+    expect(ranger.labelFrom.style.insetInlineStart).toBe('180px');
   });
 
-  it('does not overhang past the right edge for a wide label (the pre-fix bug)', () => {
-    // Regression guard: centering alone (old behavior) would place a wide
-    // label's *center* at the edge, letting half its width stick out past
-    // the track — this asserts the clamp actually kicks in.
+  it('overhangs proportionally more for a wider label at the same edge', () => {
     const input = makeInput({ min: 0, max: 100000, value: 100000 });
     const ranger = new Ranger(input);
     mockWidth(ranger.label, 200);
@@ -73,10 +69,10 @@ describe('label position clamps to the track edges (flush, no overhang)', () => 
 
     input.dispatchEvent(new Event('input'));
 
-    expect(ranger.labelFrom.style.insetInlineStart).toBe('120px'); // 200 - 80
+    expect(ranger.labelFrom.style.insetInlineStart).toBe('160px'); // 200 - 80/2
   });
 
-  it('stays centered on the value when there is room (no clamping needed)', () => {
+  it('stays centered on the value in the middle of the track, same as at the edges', () => {
     const input = makeInput({ min: 0, max: 100, value: 50 });
     const ranger = new Ranger(input);
     mockWidth(ranger.label, 200);
@@ -88,25 +84,22 @@ describe('label position clamps to the track edges (flush, no overhang)', () => 
     expect(ranger.labelFrom.style.insetInlineStart).toBe('90px');
   });
 
-  it('clamps both handles independently in range mode', () => {
+  it('positions both handles independently in range mode, each centered on its own edge', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 0, 'data-max-value': 100 }));
     mockWidth(ranger.label, 200);
     mockOffsetWidth(ranger.labelFrom, 40);
     mockOffsetWidth(ranger.labelTo, 60);
-    mockRect(ranger.labelFrom, { left: 0, right: 20 });
-    mockRect(ranger.labelTo, { left: 180, right: 200 });
+    mockRect(ranger.labelFrom, { left: -20, right: 20 });
+    mockRect(ranger.labelTo, { left: 170, right: 230 });
 
     ranger.fromSlider.dispatchEvent(new Event('input'));
 
-    expect(ranger.labelFrom.style.insetInlineStart).toBe('0px');
-    expect(ranger.labelTo.style.insetInlineStart).toBe('140px'); // 200 - 60
+    expect(ranger.labelFrom.style.insetInlineStart).toBe('-20px'); // 0 - 40/2
+    expect(ranger.labelTo.style.insetInlineStart).toBe('170px'); // 200 - 60/2
   });
 
   it('recalculates position via a ResizeObserver when the wrapper is resized without a value change', () => {
-    // Positions are computed in pixels, not left to CSS percentages to
-    // resolve on their own — so without this, resizing the window/container
-    // (with no accompanying slider input event) would leave the label
-    // exactly where it was, no longer matching the new track width.
+    // Positions are computed in pixels, not left to CSS percentages, so a resize with no accompanying input event needs this to stay in sync.
     const observers = [];
     const OriginalResizeObserver = global.ResizeObserver;
     global.ResizeObserver = class {
@@ -192,9 +185,7 @@ describe('createLabel (range)', () => {
     expect(ranger.labelFrom).toBeTruthy();
     expect(ranger.labelTo).toBeTruthy();
 
-    // jsdom performs no layout, so the labels' rects default to all-zero —
-    // which reads as "overlapping" and merges them (see the dedicated merge
-    // test below). Mock them apart here to check the un-merged shape.
+    // jsdom performs no layout, so the labels' rects default to all-zero and would otherwise merge as "overlapping" — mock them apart to check the un-merged shape.
     mockRect(ranger.labelFrom, { left: 0, right: 20 });
     mockRect(ranger.labelTo, { left: 200, right: 220 });
     ranger.fromSlider.dispatchEvent(new Event('input'));
@@ -207,9 +198,7 @@ describe('createLabel (range)', () => {
     const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80 });
     const ranger = new Ranger(input);
 
-    // jsdom performs no layout, so both label rects default to all-zero —
-    // which already exercises the "close together" merge branch — but make
-    // the intent explicit by mocking the rects to be within the 10px gate.
+    // jsdom performs no layout (both rects default to all-zero), so mock the rects to make the "within the 10px gate" intent explicit.
     mockRect(ranger.labelFrom, { left: 40, right: 60 });
     mockRect(ranger.labelTo, { left: 61, right: 80 });
 

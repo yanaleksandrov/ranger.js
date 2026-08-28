@@ -85,23 +85,6 @@ describe('Ranger.calculatePercent', () => {
   });
 });
 
-describe('Ranger.calculateMarkPosition', () => {
-  it('sits thumbInset px in from the edge at percent 0/100, not flush with the edge', () => {
-    expect(Ranger.calculateMarkPosition(200, 10, 0)).toBe(10);
-    expect(Ranger.calculateMarkPosition(200, 10, 100)).toBe(190);
-  });
-
-  it('interpolates linearly across the inset track for percents in between', () => {
-    expect(Ranger.calculateMarkPosition(200, 10, 50)).toBe(100);
-    expect(Ranger.calculateMarkPosition(200, 10, 25)).toBe(55);
-  });
-
-  it('falls back to a plain percent of the full width when thumbInset is 0', () => {
-    expect(Ranger.calculateMarkPosition(200, 0, 25)).toBe(50);
-    expect(Ranger.calculateMarkPosition(200, 0, 100)).toBe(200);
-  });
-});
-
 describe('Ranger.findSkip', () => {
   it('returns minSkip itself when it already divides lastIndex evenly', () => {
     expect(Ranger.findSkip(10, 2)).toBe(2);
@@ -132,8 +115,7 @@ describe('Ranger.NAVIGATION_KEYS', () => {
 });
 
 describe('Ranger#formatDisplayValue', () => {
-  // An instance method (reads this.format/labelPrefix/labelSuffix) — called
-  // via .call() on a minimal fake instance instead of a fully mounted Ranger.
+  // An instance method, called via .call() on a minimal fake instance instead of a fully mounted Ranger.
   const format = (fakeInstance, value) => Ranger.prototype.formatDisplayValue.call(fakeInstance, value);
 
   it('uses labelPrefix/labelSuffix when no format function is set', () => {

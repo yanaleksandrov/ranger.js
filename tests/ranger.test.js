@@ -25,9 +25,7 @@ const mockRect = (element, rect) => {
   });
 };
 
-// ---------------------------------------------------------------------------
-// Construction & options
-// ---------------------------------------------------------------------------
+// --- Construction & options ---
 
 describe('construction', () => {
   it('throws when the target selector matches nothing', () => {
@@ -181,8 +179,7 @@ describe('values option (index picker)', () => {
     const ranger = new Ranger(makeInput({ value: 0 }), { values: ['S', 'M', 'L', 'XL'] });
     expect(ranger.fromSlider.min).toBe('0');
     expect(ranger.fromSlider.max).toBe('3');
-    // The native `step` attribute is always neutralized to "any" (see
-    // initialize() in index.js) — `this.step` is where the real value lives.
+    // The native `step` attribute is always neutralized to "any" (see initialize()) — `this.step` holds the real value.
     expect(ranger.step).toBe('1');
   });
 
@@ -226,9 +223,7 @@ describe('logScale option', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// fillSlider
-// ---------------------------------------------------------------------------
+// --- fillSlider ---
 
 describe('fillSlider (single handle)', () => {
   it('always fills from 0% up to the value’s percentage of the range', () => {
@@ -292,9 +287,7 @@ describe('fillGradient', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// controlFromSlider / controlToSlider
-// ---------------------------------------------------------------------------
+// --- controlFromSlider / controlToSlider ---
 
 describe('controlFromSlider (single mode)', () => {
   it('rounds the value to the slider step on input', () => {
@@ -383,16 +376,12 @@ describe('controlFromSlider / controlToSlider (range mode, minGap)', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// resolveValue / snapPoints
-// ---------------------------------------------------------------------------
+// --- resolveValue / snapPoints ---
 
 describe('resolveValue / snapPoints', () => {
   it('rounds to the decimal precision of the step (not to step multiples) when there are no snap points', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 10, value: 0, step: 0.5 }));
-    // roundToStep (see helpers.js) matches decimal *precision*, not step
-    // multiples — a step of "0.5" has one decimal place, so 3.27 rounds to
-    // 3.3, not to the nearest multiple of 0.5 (3.5).
+    // roundToStep matches decimal *precision*, not step multiples, so "0.5" (one decimal) rounds 3.27 to 3.3, not to the nearest 0.5 multiple.
     expect(ranger.resolveValue(3.27, '0.5')).toBe(3.3);
   });
 
@@ -431,9 +420,74 @@ describe('resolveValue / snapPoints', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// positionToValue
-// ---------------------------------------------------------------------------
+// --- resolveValue / minValue & maxValue ---
+
+describe('resolveValue / minValue & maxValue', () => {
+  it('clamps a value below minValue up to minValue', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { minValue: 20 });
+    expect(ranger.resolveValue(5, '1')).toBe(20);
+  });
+
+  it('clamps a value above maxValue down to maxValue', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { maxValue: 80 });
+    expect(ranger.resolveValue(95, '1')).toBe(80);
+  });
+
+  it('leaves values inside [minValue, maxValue] untouched', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { minValue: 20, maxValue: 80 });
+    expect(ranger.resolveValue(50, '1')).toBe(50);
+  });
+
+  it('does not clamp when left at the default null (no restriction)', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }));
+    expect(ranger.resolveValue(0, '1')).toBe(0);
+    expect(ranger.resolveValue(100, '1')).toBe(100);
+  });
+
+  it('pulls a snapPoint outside the allowed window back inside it', () => {
+    // snapping happens first, so a snap target beyond the clamp must still end up clamped.
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
+      snapPoints: [95],
+      snapThreshold: 1,
+      maxValue: 80,
+    });
+    expect(ranger.resolveValue(90, '1')).toBe(80);
+  });
+
+  it('keeps the native min/max (and so the tick scale) untouched by minValue/maxValue', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { minValue: 20, maxValue: 80 });
+    expect(ranger.fromSlider.min).toBe('0');
+    expect(ranger.fromSlider.max).toBe('100');
+  });
+
+  it('clamps a live drag on the actual handle, end to end', () => {
+    const input = makeInput({ min: 0, max: 100, value: 50 });
+    const ranger = new Ranger(input, { minValue: 20, maxValue: 80 });
+
+    input.value = 5;
+    input.dispatchEvent(new Event('input'));
+    expect(input.value).toBe('20');
+
+    input.value = 95;
+    input.dispatchEvent(new Event('input'));
+    expect(input.value).toBe('80');
+  });
+
+  it('clamps both handles independently in range mode, end to end', () => {
+    const input = makeInput({ min: 0, max: 100, value: 50, 'data-max-value': 60 });
+    const ranger = new Ranger(input, { minValue: 20, maxValue: 80 });
+
+    ranger.fromSlider.value = 5;
+    ranger.fromSlider.dispatchEvent(new Event('input'));
+    expect(ranger.fromSlider.value).toBe('20');
+
+    ranger.toSlider.value = 95;
+    ranger.toSlider.dispatchEvent(new Event('input'));
+    expect(ranger.toSlider.value).toBe('80');
+  });
+});
+
+// --- positionToValue ---
 
 describe('positionToValue', () => {
   it('maps clientX linearly onto min..max under LTR', () => {
@@ -455,9 +509,7 @@ describe('positionToValue', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// resetSlider (dblclick)
-// ---------------------------------------------------------------------------
+// --- resetSlider (dblclick) ---
 
 describe('resetSlider (dblclick)', () => {
   it('resets the from handle to its initial value', () => {
@@ -484,9 +536,7 @@ describe('resetSlider (dblclick)', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// handleKeydown — Shift+Arrow fine nudge
-// ---------------------------------------------------------------------------
+// --- handleKeydown — Shift+Arrow fine nudge ---
 
 describe('handleKeydown (Shift+Arrow fine nudge)', () => {
   it('nudges up by step/10 by default on Shift+ArrowRight', () => {
@@ -532,11 +582,7 @@ describe('handleKeydown (Shift+Arrow fine nudge)', () => {
   });
 
   it('nudges by the slider\'s own (coarse) step without Shift', () => {
-    // Regression guard: the native <input>'s own `step` attribute is kept
-    // at "any" (see initialize() in index.js), since a real browser would
-    // otherwise silently re-snap any fine value handleKeydown assigns back
-    // onto the native step grid — so a plain arrow press can no longer be
-    // left to the browser's own default action; it has to be handled here.
+    // Regression guard: the native step is kept at "any" (see initialize()), so a plain arrow press has to be handled here, not left to the browser's default action.
     const input = makeInput({ min: 0, max: 10, value: 5, step: 1 });
     new Ranger(input);
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', cancelable: true }));
@@ -600,9 +646,7 @@ describe('handleKeydown (Shift+Arrow fine nudge)', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// handleTrackClick
-// ---------------------------------------------------------------------------
+// --- handleTrackClick ---
 
 describe('handleTrackClick', () => {
   it('jumps the single handle to the clicked position', () => {
@@ -646,9 +690,7 @@ describe('handleTrackClick', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// handleFillDragStart — whole-range drag
-// ---------------------------------------------------------------------------
+// --- handleFillDragStart — whole-range drag ---
 
 describe('handleFillDragStart (drag the whole range via the fill)', () => {
   it('drags both handles together by the same delta, clamped to bounds', () => {
@@ -664,8 +706,7 @@ describe('handleFillDragStart (drag the whole range via the fill)', () => {
     expect(Number(ranger.fromSlider.value)).toBe(50);
     expect(Number(ranger.toSlider.value)).toBe(70);
 
-    // Dragging further would push the to-handle past max(100); the pair's
-    // spacing is preserved and the whole drag clamps together.
+    // Dragging further would push the to-handle past max(100); the pair's spacing is preserved and the whole drag clamps together.
     ranger.fill.dispatchEvent(new PointerEvent('pointermove', { clientX: 90, pointerId: 1 }));
     expect(Number(ranger.toSlider.value)).toBe(100);
     expect(Number(ranger.fromSlider.value)).toBe(80);
@@ -687,9 +728,7 @@ describe('handleFillDragStart (drag the whole range via the fill)', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Drag/focus callbacks
-// ---------------------------------------------------------------------------
+// --- Drag/focus callbacks ---
 
 describe('drag/focus callbacks', () => {
   it('fires onStart/onEnd around a pointerdown/pointerup drag on a handle', () => {
@@ -711,9 +750,7 @@ describe('drag/focus callbacks', () => {
     const input = makeInput({ min: 0, max: 100, value: 20 });
     new Ranger(input, { onStart, onEnd });
 
-    // The keydown moves the slider (handleKeydown) — onStart must still
-    // report the value from *before* that move, which only holds if its
-    // own keydown listener runs before handleKeydown's (see addListeners).
+    // onStart must report the pre-move value, which only holds if its keydown listener runs before handleKeydown's (see addListeners).
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     expect(onStart).toHaveBeenCalledWith(20, input);
 
@@ -758,9 +795,7 @@ describe('drag/focus callbacks', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// External fromInput/toInput two-way sync
-// ---------------------------------------------------------------------------
+// --- External fromInput/toInput two-way sync ---
 
 describe('external fromInput/toInput two-way sync', () => {
   it('updates the slider (and re-fires its own input pipeline) when the external input changes', () => {
@@ -793,9 +828,7 @@ describe('external fromInput/toInput two-way sync', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// fixedRange — an appointment-style slot that slides but never resizes
-// ---------------------------------------------------------------------------
+// --- fixedRange — an appointment-style slot that slides but never resizes ---
 
 describe('fixedRange', () => {
   it('locks in the initial gap (data-max-value minus value) when set to true', () => {
@@ -914,9 +947,7 @@ describe('fixedRange', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// setValue / setRange — public API for moving handles programmatically
-// ---------------------------------------------------------------------------
+// --- setValue / setRange — public API for moving handles programmatically ---
 
 describe('setValue / setRange', () => {
   it('setValue moves the single handle through the normal pipeline', () => {
@@ -953,8 +984,7 @@ describe('setValue / setRange', () => {
   });
 
   it('does not corrupt the pair when minGap would otherwise clamp against the stale value', () => {
-    // Regression guard: dispatching on fromSlider before toSlider is updated
-    // would clamp against toSlider's OLD value instead of the new target.
+    // Regression guard: dispatching on fromSlider before toSlider is updated would clamp against toSlider's OLD value.
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 30 }), { minGap: 5 });
 
     ranger.setRange(40, 50);
@@ -980,9 +1010,7 @@ describe('setValue / setRange', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// update() — patches options after mount
-// ---------------------------------------------------------------------------
+// --- update() — patches options after mount ---
 
 describe('update()', () => {
   it('updates min/max on both handles and re-clamps out-of-range values', () => {
@@ -1120,39 +1148,26 @@ describe('update()', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// marks — fixed points on the track, independent of the tick scale
-// ---------------------------------------------------------------------------
+// --- marks — fixed points on the track, independent of the tick scale ---
 
 describe('marks', () => {
-  // jsdom never performs real layout, so clientWidth is stubbed here to exercise the same
-  // pixel math a real browser would do (see calculateMarkPosition).
-  const mockWidth = (element, width) => {
-    Object.defineProperty(element, 'clientWidth', { value: width, configurable: true });
-  };
-
-  it('creates one element per mark, positioned in px and inset from the track edges', () => {
+  it('creates one element per mark, positioned by percent', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [25, 75] });
-    mockWidth(ranger.wrapper, 200);
-    ranger.positionMarks();
 
     expect(ranger.marksContainer).toBeTruthy();
     const marks = ranger.marksContainer.querySelectorAll('.ranger-mark');
     expect(marks).toHaveLength(2);
-    // thumbInset defaults to 10, so the 180px track runs from 10px to 190px.
-    expect(marks[0].style.insetInlineStart).toBe('55px'); // 10 + 0.25 * 180
-    expect(marks[1].style.insetInlineStart).toBe('145px'); // 10 + 0.75 * 180
+    expect(marks[0].style.insetInlineStart).toBe('25%');
+    expect(marks[1].style.insetInlineStart).toBe('75%');
   });
 
   it('accepts the object form with an optional label and className', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
       marks: [{ value: 60, label: 'Recommended', className: 'ranger-mark--highlight' }],
     });
-    mockWidth(ranger.wrapper, 200);
-    ranger.positionMarks();
 
     const mark = ranger.marksContainer.querySelector('.ranger-mark');
-    expect(mark.style.insetInlineStart).toBe('118px'); // 10 + 0.6 * 180
+    expect(mark.style.insetInlineStart).toBe('60%');
     expect(mark.classList.contains('ranger-mark--highlight')).toBe(true);
     expect(mark.querySelector('ins').textContent).toBe('Recommended');
   });
@@ -1184,13 +1199,12 @@ describe('marks', () => {
 
   it('rebuilds at the new positions when min/max change via update()', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [50] });
-    mockWidth(ranger.wrapper, 200);
 
     ranger.update({ min: 0, max: 200 });
 
     const mark = ranger.marksContainer.querySelector('.ranger-mark');
-    // 50 is now a quarter of 0..200, same math as the 25% case above
-    expect(mark.style.insetInlineStart).toBe('55px');
+    // 50 is now a quarter of 0..200
+    expect(mark.style.insetInlineStart).toBe('25%');
   });
 
   it('can be added, and later removed, via update()', () => {
@@ -1210,12 +1224,10 @@ describe('marks', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
       marks: [{ from: 20, to: 60 }],
     });
-    mockWidth(ranger.wrapper, 200);
-    ranger.positionMarks();
 
     const mark = ranger.marksContainer.querySelector('.ranger-mark');
-    expect(mark.style.insetInlineStart).toBe('46px'); // 10 + 0.2 * 180
-    expect(mark.style.width).toBe('72px'); // (10 + 0.6 * 180) - 46
+    expect(mark.style.insetInlineStart).toBe('20%');
+    expect(mark.style.width).toBe('40%');
     expect(mark.classList.contains('ranger-mark--range')).toBe(true);
   });
 
@@ -1247,10 +1259,8 @@ describe('marks', () => {
     expect(marks).toHaveLength(2);
     expect(marks[0].classList.contains('ranger-mark--range')).toBe(false);
     expect(marks[1].classList.contains('ranger-mark--range')).toBe(true);
-    mockWidth(ranger.wrapper, 200);
-    ranger.positionMarks();
-    expect(marks[1].style.insetInlineStart).toBe('82px'); // 10 + 0.4 * 180
-    expect(marks[1].style.width).toBe('36px'); // (10 + 0.6 * 180) - 82
+    expect(marks[1].style.insetInlineStart).toBe('40%');
+    expect(marks[1].style.width).toBe('20%');
   });
 
   it('respects a custom classes.markRange', () => {
@@ -1268,22 +1278,11 @@ describe('marks', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
       marks: [{ from: 25, to: 75 }],
     });
-    mockWidth(ranger.wrapper, 200);
 
     ranger.update({ min: 0, max: 200 });
 
     const mark = ranger.marksContainer.querySelector('.ranger-mark');
-    expect(mark.style.insetInlineStart).toBe('32.5px'); // 10 + 0.125 * 180
-    expect(mark.style.width).toBe('45px'); // (10 + 0.375 * 180) - 32.5
-  });
-
-  it('repositions marks in px when thumbInset changes via update(), without a full rebuild', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [25] });
-    mockWidth(ranger.wrapper, 200);
-
-    ranger.update({ thumbInset: 0 });
-
-    const mark = ranger.marksContainer.querySelector('.ranger-mark');
-    expect(mark.style.insetInlineStart).toBe('50px'); // plain 25% of 200 once thumbInset is 0
+    expect(mark.style.insetInlineStart).toBe('12.5%');
+    expect(mark.style.width).toBe('25%');
   });
 });
