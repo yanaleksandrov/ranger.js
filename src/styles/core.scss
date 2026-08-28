@@ -113,70 +113,6 @@
 	}
 }
 
-// "Classic" skin — the original look: rounded track, square handle with a grip icon. Opt in with `data-skin="classic"` on `.ranger` or any ancestor; being plain custom-property overrides, an already-mounted slider re-skins live except for the fill color, which needs an explicit `.fillSlider()` call (see fillSlider in index.js).
-[data-skin="classic"] {
-	--ranger-height: 10px;
-	--ranger-radius: 3px;
-	--ranger-bg: #f1f1f1;
-	--ranger-accent: #0b6dea;
-	--ranger-thumb-width: 1.25rem;
-	--ranger-thumb-height: 1.25rem;
-	--ranger-thumb-radius: 4px;
-	--ranger-thumb-bg: #fff;
-	--ranger-thumb-hover-bg: #f7f7f7;
-	--ranger-thumb-border: #bbb;
-	--ranger-thumb-icon-size: auto;
-	--ranger-thumb-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath stroke='%23bbb' d='M4.5 2v8M7.5 2v8'/%3E%3C/svg%3E");
-	--ranger-thumb-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
-	--ranger-tick-color: #bdbdbd;
-	--ranger-tick-label-color: #333;
-
-	// Element selector, not the `ranger-input` class — see the note on Coral's thumb rule above.
-	// Two separate rules, not one comma-joined selector list — a selector list containing a
-	// pseudo-element the browser doesn't recognize gets the whole rule dropped (see the mixin note up top).
-	input[type="range"] {
-		&::-webkit-slider-thumb,
-		&::-webkit-slider-thumb:hover {
-			color: initial;
-			mask: none;
-		}
-
-		&::-webkit-slider-thumb {
-			background-color: var(--ranger-thumb-bg);
-		}
-
-		&::-webkit-slider-thumb:hover {
-			background-color: var(--ranger-thumb-hover-bg);
-		}
-	}
-
-	input[type="range"] {
-		&::-moz-range-thumb,
-		&::-moz-range-thumb:hover {
-			color: initial;
-			mask: none;
-		}
-
-		&::-moz-range-thumb {
-			background-color: var(--ranger-thumb-bg);
-		}
-
-		&::-moz-range-thumb:hover {
-			background-color: var(--ranger-thumb-hover-bg);
-		}
-	}
-
-	.ranger-label-item {
-		background-color: #f1f1f1;
-		padding: 2px 5px;
-		border-radius: 2px;
-
-		&:after {
-			content: none;
-		}
-	}
-}
-
 .ranger {
 	background-color: var(--ranger-bg);
 	border-radius: var(--ranger-radius);
@@ -209,7 +145,10 @@
 		}
 	}
 
-	// Colored progress fill — a dedicated layer so it can never paint over either handle.
+	// Colored progress fill — a dedicated layer so it can never paint over either handle. No z-index
+	// needed: it's kept below the marks layer by DOM order (see reorderLayers in index.js), and below
+	// the handles since a z-index:auto element always paints under one with an explicit z-index — see
+	// the handle's own z-index note below.
 	&-fill {
 		background-color: var(--ranger-accent);
 		// Set via the fillGradient option; 'none' by default, so the plain background-color above shows through.
@@ -221,7 +160,6 @@
 		position: absolute;
 		top: 0;
 		touch-action: none;
-		z-index: 1;
 
 		// Range mode only (see is-draggable in index.js) — grab the fill to slide both handles together.
 		&.is-draggable {
@@ -231,6 +169,10 @@
 	}
 
 	// Once JS wraps the input (see index.js), `.ranger` owns the visible track, so the input itself becomes an invisible absolute overlay covering it.
+	// Unlike every other layer in this file, this needs an actual z-index rather than DOM order:
+	// updateHandleStackOrder in index.js re-triggers the from/to priority swap on every drag tick, and
+	// reordering the DOM mid-drag instead would risk cancelling the browser's native pointer capture
+	// on the handle being dragged.
 	& > input[type="range"] {
 		background-color: transparent;
 		height: 100%;
@@ -269,7 +211,6 @@
 				position: absolute;
 				width: 10px;
 				background-color: #fff;
-				z-index: 0;
 				border-right: 1px solid #dfe2e3;
 				border-bottom: 1px solid #dfe2e3;
 				border-bottom-right-radius: 3px;
@@ -281,6 +222,7 @@
 		}
 	}
 
+	// Appended first among `.ranger`'s children (see reorderLayers in index.js), so it paints below every other layer without z-index.
 	&-scale {
 		display: flex;
 		justify-content: space-between;
@@ -289,7 +231,6 @@
 		top: calc(var(--ranger-height, 8px) - 2px);
 		white-space: nowrap;
 		width: calc(100% - 1px);
-		z-index: -1;
 		box-sizing: border-box;
 		padding: 0;
 
@@ -354,13 +295,13 @@
 	}
 
 	// A separate layer from &-scale, since `marks` positions are arbitrary values, not an evenly spaced grid.
+	// Appended above fill but below the handles (see reorderLayers in index.js) — no z-index needed.
 	&-marks {
 		inset-inline: 0;
 		height: 100%;
 		pointer-events: none;
 		position: absolute;
 		top: 0;
-		z-index: 2;
 	}
 
 	&-mark {
@@ -418,6 +359,70 @@
 			border: 1px solid #ddd;
 			border-radius: 4px;
 			padding: 0.4rem 0.6rem;
+		}
+	}
+}
+
+// "Classic" skin — the original look: rounded track, square handle with a grip icon. Opt in with `data-skin="classic"` on `.ranger` or any ancestor; being plain custom-property overrides, an already-mounted slider re-skins live except for the fill color, which needs an explicit `.fillSlider()` call (see fillSlider in index.js).
+[data-skin="classic"] {
+	--ranger-height: 10px;
+	--ranger-radius: 3px;
+	--ranger-bg: #f1f1f1;
+	--ranger-accent: #0b6dea;
+	--ranger-thumb-width: 1.25rem;
+	--ranger-thumb-height: 1.25rem;
+	--ranger-thumb-radius: 4px;
+	--ranger-thumb-bg: #fff;
+	--ranger-thumb-hover-bg: #f7f7f7;
+	--ranger-thumb-border: #bbb;
+	--ranger-thumb-icon-size: auto;
+	--ranger-thumb-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath stroke='%23bbb' d='M4.5 2v8M7.5 2v8'/%3E%3C/svg%3E");
+	--ranger-thumb-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
+	--ranger-tick-color: #bdbdbd;
+	--ranger-tick-label-color: #333;
+
+	// Element selector, not the `ranger-input` class — see the note on Coral's thumb rule above.
+	// Two separate rules, not one comma-joined selector list — a selector list containing a
+	// pseudo-element the browser doesn't recognize gets the whole rule dropped (see the mixin note up top).
+	input[type="range"] {
+		&::-webkit-slider-thumb,
+		&::-webkit-slider-thumb:hover {
+			color: initial;
+			mask: none;
+		}
+
+		&::-webkit-slider-thumb {
+			background-color: var(--ranger-thumb-bg);
+		}
+
+		&::-webkit-slider-thumb:hover {
+			background-color: var(--ranger-thumb-hover-bg);
+		}
+	}
+
+	input[type="range"] {
+		&::-moz-range-thumb,
+		&::-moz-range-thumb:hover {
+			color: initial;
+			mask: none;
+		}
+
+		&::-moz-range-thumb {
+			background-color: var(--ranger-thumb-bg);
+		}
+
+		&::-moz-range-thumb:hover {
+			background-color: var(--ranger-thumb-hover-bg);
+		}
+	}
+
+	.ranger-label-item {
+		background-color: #f1f1f1;
+		padding: 2px 5px;
+		border-radius: 2px;
+
+		&:after {
+			content: none;
 		}
 	}
 }

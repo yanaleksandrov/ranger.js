@@ -234,6 +234,32 @@ describe('logScale option', () => {
     });
     expect(ranger.format(1)).toBe('custom-1');
   });
+
+  it('treats the initial value/data-points as real units, not raw drag position', () => {
+    const ranger = new Ranger(makeInput({ min: 0.1, max: 10000, step: 1, value: 10 }), { logScale: true });
+
+    // value="10" means a $10 starting price, not "position 10" (which would format to ~$0.10 and
+    // render pinned to the left edge) — the slider itself should land ~40% along the track.
+    expect(Number(ranger.fromSlider.value)).toBeCloseTo(4000, 0);
+    expect(ranger.format(Number(ranger.fromSlider.value))).toBe(10);
+  });
+
+  it('leaves value/position untouched at the min/max endpoints', () => {
+    const ranger = new Ranger(makeInput({ min: 1, max: 1000, value: 1 }), { logScale: true });
+    expect(Number(ranger.fromSlider.value)).toBe(1);
+
+    const rangerAtMax = new Ranger(makeInput({ min: 1, max: 1000, value: 1000 }), { logScale: true });
+    expect(Number(rangerAtMax.fromSlider.value)).toBe(1000);
+  });
+
+  it('converts data-points the same way, for a logScale range slider', () => {
+    const ranger = new Ranger(makeInput({ min: 0.1, max: 10000, step: 1, value: 10, 'data-points': 100 }), {
+      logScale: true,
+    });
+
+    expect(Number(ranger.fromSlider.value)).toBeCloseTo(4000, 0);
+    expect(ranger.format(Number(ranger.toSlider.value))).toBe(100);
+  });
 });
 
 // --- fillSlider ---
@@ -381,6 +407,8 @@ describe('controlFromSlider / controlToSlider (range mode, minGap)', () => {
   it('keeps the upper handle stacked above at/below the midpoint, and below past it', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 10, 'data-points': 20 }));
 
+    // A z-index toggle, not a DOM move — see updateHandleStackOrder in src/index.js for why moving
+    // the dragged node mid-drag isn't safe.
     expect(ranger.toSlider.style.zIndex).toBe('4');
 
     ranger.toSlider.value = 80;

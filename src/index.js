@@ -114,6 +114,16 @@ export default class Ranger {
     return ((value - start) / (end - start)) * 100;
   }
 
+  /**
+   * Inverse of logScale's default position→value mapping (`min * (max/min) ** ((position-min)/(max-min))`):
+   * given a real/displayed value (e.g. a $10 price), returns the linear drag position that would
+   * display it. Lets markup declare `value`/`data-points` in real units — no logarithm required on
+   * whichever end renders the initial HTML — while dragging itself stays linear post-init.
+   */
+  static logScalePosition(value, min, max) {
+    return min + (max - min) * (Math.log(value / min) / Math.log(max / min));
+  }
+
   // Smallest divisor of lastIndex >= minSkip, so 0/lastIndex stay included; falls back to lastIndex.
   static findSkip(lastIndex, minSkip) {
     for (let skip = minSkip; skip <= lastIndex; skip++) {
@@ -254,6 +264,8 @@ export default class Ranger {
       this.markEntries = null;
     }
 
+    this.reorderLayers();
+
     this.fromSlider.dispatchEvent(new Event('input'));
     if (this.isRange) {
       this.toSlider.dispatchEvent(new Event('input'));
@@ -272,6 +284,16 @@ export default class Ranger {
       const min = Number(this.fromSlider.min);
       const max = Number(this.fromSlider.max);
       this.format ||= (position) => Math.round(min * (max / min) ** ((position - min) / (max - min)));
+
+      // `value`/`data-points` are authored in real units (e.g. a $10 price), not the internal linear
+      // drag position — convert them once, up front, so every reader below (toSlider setup,
+      // fillSlider, defaultFromValue, ...) sees a normal linear position like any other slider.
+      this.fromSlider.value = Ranger.logScalePosition(Number(this.fromSlider.value), min, max);
+      if (this.fromSlider.hasAttribute('data-points')) {
+        this.fromSlider.dataset.points = this.parsePoints()
+          .map((point) => Ranger.logScalePosition(point, min, max))
+          .join(',');
+      }
     }
 
     /* Neutralizes native `step` to "any" (it re-snaps assignments, breaking fineStep); `this.step` holds the real one. */
@@ -300,7 +322,6 @@ export default class Ranger {
       this.toSlider.value = Math.max(Number(this.fromSlider.value), this.parsePoints()[0]);
 
       wrapper.appendChild(this.toSlider);
-      this.updateHandleStackOrder(this.toSlider);
 
       if (this.fixedRange) {
         this.rangeSize = typeof this.fixedRange === 'number'
@@ -349,6 +370,8 @@ export default class Ranger {
     if (this.marks.length > 0) {
       this.marksContainer = this.createMarks();
     }
+
+    this.reorderLayers();
   }
 
   /**
@@ -684,7 +707,24 @@ export default class Ranger {
     slider.setAttribute('aria-valuetext', this.formatDisplayValue(slider.value));
   }
 
-  // Keeps the more-likely-to-grab handle on top; both stay above the fill layer regardless.
+  // Scale/label/fill/marks are only ever touched here — once at init/update, never mid-drag — so
+  // DOM order alone (no z-index) safely keeps them stacked bottom to top. The handles themselves
+  // are excluded: they're positioned above these layers via the static z-index on `.ranger > input`
+  // in core.scss instead (see updateHandleStackOrder for why they can't use DOM order too).
+  reorderLayers() {
+    [this.scale, this.label, this.fill, this.marksContainer].forEach((layer) => {
+      if (layer) {
+        this.wrapper.appendChild(layer);
+      }
+    });
+
+    this.updateHandleStackOrder(this.toSlider);
+  }
+
+  // Keeps the more-likely-to-grab handle on top. This has to be a z-index toggle, not a DOM move:
+  // it fires on every 'input' event while the user is actively dragging that handle, and reinserting
+  // a node mid-drag (even to its current position) can cancel the browser's native pointer capture
+  // on it, freezing the drag after the first pixel of movement.
   updateHandleStackOrder(target) {
     if (!this.toSlider) {
       return;
