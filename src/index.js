@@ -11,6 +11,7 @@ export default class Ranger {
   static DEFAULTS = {
     classes: {
       container: 'ranger',
+      input: 'ranger-input',
       fill: 'ranger-fill',
       inputTo: 'ranger-input--to',
       scale: 'ranger-scale',
@@ -167,7 +168,7 @@ export default class Ranger {
   // Moves both handles; both raw values are set before either dispatches so minGap/fixedRange see the real pair.
   setRange(from, to) {
     if (!this.isRange) {
-      throw new Error('Ranger: setRange() requires a range slider (data-max-value)');
+      throw new Error('Ranger: setRange() requires a range slider (data-points)');
     }
 
     this.fromSlider.value = from;
@@ -277,6 +278,8 @@ export default class Ranger {
     this.step = this.fromSlider.step;
     this.fromSlider.step = 'any';
 
+    this.fromSlider.classList.add(this.classes.input);
+
     const wrapper = document.createElement('div');
     wrapper.classList.add(this.classes.container);
 
@@ -289,12 +292,12 @@ export default class Ranger {
     // Purely visual; hidden from AT (the value's already exposed via the handle).
     this.fill.setAttribute('aria-hidden', 'true');
 
-    if (this.fromSlider.hasAttribute('data-max-value')) {
+    if (this.fromSlider.hasAttribute('data-points')) {
       this.toSlider = this.fromSlider.cloneNode(false);
-      this.toSlider.removeAttribute('data-max-value');
+      this.toSlider.removeAttribute('data-points');
       this.toSlider.removeAttribute('id');
       this.toSlider.className += ` ${this.classes.inputTo}`;
-      this.toSlider.value = Math.max(Number(this.fromSlider.value), this.parseMaxValue());
+      this.toSlider.value = Math.max(Number(this.fromSlider.value), this.parsePoints()[0]);
 
       wrapper.appendChild(this.toSlider);
       this.updateHandleStackOrder(this.toSlider);
@@ -304,7 +307,7 @@ export default class Ranger {
           ? this.fixedRange
           : Number(this.toSlider.value) - Number(this.fromSlider.value);
 
-        // Honors an explicit numeric fixedRange even if data-max-value's own gap differs.
+        // Honors an explicit numeric fixedRange even if data-points's own gap differs.
         if (typeof this.fixedRange === 'number') {
           const max = Number(this.fromSlider.max);
           this.toSlider.value = Ranger.roundToStep(
@@ -349,13 +352,20 @@ export default class Ranger {
   }
 
   /**
-   * Resolve the upper handle's start from data-max-value, or fall back to max.
+   * Parses data-points into extra handle starting values (comma-separated, forward-compatible with
+   * more than one) — today only the first entry is used, for the upper handle. Falls back to max
+   * wherever an entry is missing or not a number.
    */
-  parseMaxValue() {
-    const attr = this.fromSlider.dataset.maxValue;
-    const parsed = attr ? Number(attr) : NaN;
+  parsePoints() {
+    const attr = this.fromSlider.dataset.points ?? '';
+    const parts = attr.length > 0 ? attr.split(',') : [''];
 
-    return Number.isNaN(parsed) ? Number(this.fromSlider.max) : parsed;
+    return parts.map((part) => {
+      const trimmed = part.trim();
+      const value = trimmed === '' ? NaN : Number(trimmed);
+
+      return Number.isNaN(value) ? Number(this.fromSlider.max) : value;
+    });
   }
 
   addListeners() {

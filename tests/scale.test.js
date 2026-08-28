@@ -195,7 +195,7 @@ describe('updateScale (--ranger-scale arc: 1 (tallest) at the handle, eases non-
   });
 
   it('uses the distance to whichever handle is nearer in range mode', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80 });
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80 });
     const ranger = new Ranger(input, { scaleTicksCount: 10, scaleAnimatedTicksCount: 1 });
 
     const nearFrom = ranger.scaleTicks.find((t) => t.value === 20);
