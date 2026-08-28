@@ -62,6 +62,11 @@ export default class Ranger {
 
     // Fixed points/zones, independent of the tick scale: { value } for a point, { from, to } for a zone.
     marks: [],
+    // Px the native thumb's center is inset from each track edge — matches the default skin's
+    // 1.25rem thumb at a 16px root font size. Marks are positioned within that inset range, not
+    // edge to edge, so they land under the thumb; set to 0 for a skin whose track spans edge to
+    // edge (e.g. the "coral" skin, which cancels the native inset via a negative track margin).
+    thumbInset: 10,
 
     // External <input> elements kept in sync with the lower/single and upper handles.
     fromInput: null,
@@ -105,6 +110,15 @@ export default class Ranger {
   /** Percentage `value` falls at between `start` and `end`. */
   static calculatePercent(start, end, value) {
     return ((value - start) / (end - start)) * 100;
+  }
+
+  // Where `percent` (0-100, between min/max) lands in px from the track's left edge. A plain
+  // percentage of trackWidth lines a mark up with the track edge at that fraction, not the thumb —
+  // the thumb's own center only travels [thumbInset, trackWidth - thumbInset] (native browsers
+  // inset it by half its own width; see the `thumbInset` option for skins that cancel this), so
+  // marks need the same inset to land under the handle instead of drifting from it at the edges.
+  static calculateMarkPosition(trackWidth, thumbInset, percent) {
+    return thumbInset + (percent / 100) * (trackWidth - thumbInset * 2);
   }
 
   // Smallest divisor of lastIndex >= minSkip, so 0/lastIndex stay included; falls back to lastIndex.
@@ -244,6 +258,11 @@ export default class Ranger {
     } else if (!wantsMarks && this.marksContainer) {
       this.marksContainer.remove();
       this.marksContainer = null;
+      this.markEntries = null;
+    } else if ('thumbInset' in options) {
+      // Marks weren't rebuilt above (createMarks() already positions once), so a thumbInset-only
+      // change — e.g. switching to a skin with a different track inset — needs its own reposition.
+      this.positionMarks();
     }
 
     this.fromSlider.dispatchEvent(new Event('input'));
@@ -862,7 +881,9 @@ export default class Ranger {
     return Array.from({ length: segments + 1 }, (_, index) => min + ((max - min) / segments) * index);
   }
 
-  // Fixed points/zones along the track (percent-positioned, so no resize handling is needed unlike labels).
+  // Fixed points/zones along the track. Positioned in px (via positionMarks), not %, so they can
+  // be inset to land under the thumb rather than the bare track edge — which means, unlike
+  // before, they do need their own resize handling.
   createMarks() {
     const container = Ranger.createElement('div', this.classes.mark);
     container.setAttribute('aria-hidden', 'true');
@@ -870,29 +891,46 @@ export default class Ranger {
     const min = Number(this.fromSlider.min);
     const max = Number(this.fromSlider.max);
 
-    this.marks.forEach((mark) => {
+    this.markEntries = this.marks.map((mark) => {
       const { value, from, to, label, className } = typeof mark === 'object' ? mark : { value: mark };
       const isZone = from !== undefined && to !== undefined;
       const baseClass = isZone ? this.classes.markRange : this.classes.markItem;
       const markEl = Ranger.createElement('span', [baseClass, className].filter(Boolean).join(' '));
 
-      if (isZone) {
-        const fromPercent = Ranger.calculatePercent(min, max, from);
-        const toPercent = Ranger.calculatePercent(min, max, to);
-        markEl.style.insetInlineStart = `${fromPercent}%`;
-        markEl.style.width = `${toPercent - fromPercent}%`;
-      } else {
-        markEl.style.insetInlineStart = `${Ranger.calculatePercent(min, max, value)}%`;
-      }
-
       if (label) {
         markEl.appendChild(Ranger.createElement('ins', '', label));
       }
       container.appendChild(markEl);
+
+      return isZone
+        ? { markEl, fromPercent: Ranger.calculatePercent(min, max, from), toPercent: Ranger.calculatePercent(min, max, to) }
+        : { markEl, fromPercent: Ranger.calculatePercent(min, max, value) };
     });
 
     this.wrapper.appendChild(container);
+    this.positionMarks();
+    new ResizeObserver(() => this.positionMarks()).observe(this.wrapper);
+
     return container;
+  }
+
+  // Converts each mark's stored percent(s) into px, inset by thumbInset from each edge so a mark
+  // lines up with where the thumb actually centers at that value (see calculateMarkPosition).
+  positionMarks() {
+    if (!this.markEntries) {
+      return;
+    }
+
+    const trackWidth = this.wrapper.clientWidth;
+
+    this.markEntries.forEach(({ markEl, fromPercent, toPercent }) => {
+      const fromPx = Ranger.calculateMarkPosition(trackWidth, this.thumbInset, fromPercent);
+      markEl.style.insetInlineStart = `${fromPx}px`;
+
+      if (toPercent !== undefined) {
+        markEl.style.width = `${Ranger.calculateMarkPosition(trackWidth, this.thumbInset, toPercent) - fromPx}px`;
+      }
+    });
   }
 }
 

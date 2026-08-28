@@ -1125,23 +1125,34 @@ describe('update()', () => {
 // ---------------------------------------------------------------------------
 
 describe('marks', () => {
-  it('creates one element per mark, positioned by percentage', () => {
+  // jsdom never performs real layout, so clientWidth is stubbed here to exercise the same
+  // pixel math a real browser would do (see calculateMarkPosition).
+  const mockWidth = (element, width) => {
+    Object.defineProperty(element, 'clientWidth', { value: width, configurable: true });
+  };
+
+  it('creates one element per mark, positioned in px and inset from the track edges', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [25, 75] });
+    mockWidth(ranger.wrapper, 200);
+    ranger.positionMarks();
 
     expect(ranger.marksContainer).toBeTruthy();
     const marks = ranger.marksContainer.querySelectorAll('.ranger-mark');
     expect(marks).toHaveLength(2);
-    expect(marks[0].style.insetInlineStart).toBe('25%');
-    expect(marks[1].style.insetInlineStart).toBe('75%');
+    // thumbInset defaults to 10, so the 180px track runs from 10px to 190px.
+    expect(marks[0].style.insetInlineStart).toBe('55px'); // 10 + 0.25 * 180
+    expect(marks[1].style.insetInlineStart).toBe('145px'); // 10 + 0.75 * 180
   });
 
   it('accepts the object form with an optional label and className', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
       marks: [{ value: 60, label: 'Recommended', className: 'ranger-mark--highlight' }],
     });
+    mockWidth(ranger.wrapper, 200);
+    ranger.positionMarks();
 
     const mark = ranger.marksContainer.querySelector('.ranger-mark');
-    expect(mark.style.insetInlineStart).toBe('60%');
+    expect(mark.style.insetInlineStart).toBe('118px'); // 10 + 0.6 * 180
     expect(mark.classList.contains('ranger-mark--highlight')).toBe(true);
     expect(mark.querySelector('ins').textContent).toBe('Recommended');
   });
@@ -1173,11 +1184,13 @@ describe('marks', () => {
 
   it('rebuilds at the new positions when min/max change via update()', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [50] });
+    mockWidth(ranger.wrapper, 200);
 
     ranger.update({ min: 0, max: 200 });
 
     const mark = ranger.marksContainer.querySelector('.ranger-mark');
-    expect(mark.style.insetInlineStart).toBe('25%'); // 50 is now a quarter of 0..200
+    // 50 is now a quarter of 0..200, same math as the 25% case above
+    expect(mark.style.insetInlineStart).toBe('55px');
   });
 
   it('can be added, and later removed, via update()', () => {
@@ -1197,10 +1210,12 @@ describe('marks', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
       marks: [{ from: 20, to: 60 }],
     });
+    mockWidth(ranger.wrapper, 200);
+    ranger.positionMarks();
 
     const mark = ranger.marksContainer.querySelector('.ranger-mark');
-    expect(mark.style.insetInlineStart).toBe('20%');
-    expect(mark.style.width).toBe('40%');
+    expect(mark.style.insetInlineStart).toBe('46px'); // 10 + 0.2 * 180
+    expect(mark.style.width).toBe('72px'); // (10 + 0.6 * 180) - 46
     expect(mark.classList.contains('ranger-mark--range')).toBe(true);
   });
 
@@ -1232,8 +1247,10 @@ describe('marks', () => {
     expect(marks).toHaveLength(2);
     expect(marks[0].classList.contains('ranger-mark--range')).toBe(false);
     expect(marks[1].classList.contains('ranger-mark--range')).toBe(true);
-    expect(marks[1].style.insetInlineStart).toBe('40%');
-    expect(marks[1].style.width).toBe('20%');
+    mockWidth(ranger.wrapper, 200);
+    ranger.positionMarks();
+    expect(marks[1].style.insetInlineStart).toBe('82px'); // 10 + 0.4 * 180
+    expect(marks[1].style.width).toBe('36px'); // (10 + 0.6 * 180) - 82
   });
 
   it('respects a custom classes.markRange', () => {
@@ -1251,11 +1268,22 @@ describe('marks', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
       marks: [{ from: 25, to: 75 }],
     });
+    mockWidth(ranger.wrapper, 200);
 
     ranger.update({ min: 0, max: 200 });
 
     const mark = ranger.marksContainer.querySelector('.ranger-mark');
-    expect(mark.style.insetInlineStart).toBe('12.5%');
-    expect(mark.style.width).toBe('25%');
+    expect(mark.style.insetInlineStart).toBe('32.5px'); // 10 + 0.125 * 180
+    expect(mark.style.width).toBe('45px'); // (10 + 0.375 * 180) - 32.5
+  });
+
+  it('repositions marks in px when thumbInset changes via update(), without a full rebuild', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [25] });
+    mockWidth(ranger.wrapper, 200);
+
+    ranger.update({ thumbInset: 0 });
+
+    const mark = ranger.marksContainer.querySelector('.ranger-mark');
+    expect(mark.style.insetInlineStart).toBe('50px'); // plain 25% of 200 once thumbInset is 0
   });
 });

@@ -125,6 +125,8 @@
       здесь зелёный→жёлтый→красный на шкале риска. В диапазонном режиме градиент растягивается на
       выбранный поддиапазон, а не на постоянную позицию по всей дорожке.</p>
     <input class="ranger-input" type="range" id="risk" min="0" max="100" step="1" value="40"/>
+    <input class="ranger-input" type="range" id="risks" min="0" max="100" step="1" value="40"/>
+
   </section>
 
   <section>
@@ -180,6 +182,11 @@
       Ranger.instances.forEach(function (instance) {
         instance.fillSlider();
       });
+
+      // thumbInset is a plain JS option (not a CSS var), so it doesn't follow the skin switch on
+      // its own — the coral skin's track hack cancels the native thumb inset entirely, so its
+      // marks need thumbInset: 0 instead of the default skin's half-thumb-width inset.
+      budgetRanger.update({ thumbInset: isCoral ? 10 : 0 });
     });
 
     new Ranger('#single');
@@ -271,9 +278,15 @@
       labelOnDragOnly: true,
     });
 
-    new Ranger('#risk', { fillGradient: 'linear-gradient(to right, #22c55e, #eab308, #ef4444)' });
+    new Ranger('#risk', {
+      fillGradient: 'linear-gradient(to right, #22c55e, #eab308, #ef4444)'
+    });
 
-    new Ranger('#budget', {
+    new Ranger('#risks', {
+      fillGradient: 'linear-gradient(to right, #00a651 0 calc(20% - 1px), var(--ranger-bg) calc(20% - 1px) 20%, #7cb342 20% calc(40% - 1px), var(--ranger-bg) calc(40% - 1px) 40%, #fdd835 40% calc(60% - 1px), var(--ranger-bg) calc(60% - 1px) 60%, #fb8c00 60% calc(80% - 1px), var(--ranger-bg) calc(80% - 1px) 80%, #e53935 80% 100%)'
+    });
+
+    var budgetRanger = new Ranger('#budget', {
       scaleTicksCount: 5,
       marks: [
         { value: 700, label: 'Рекомендовано', className: 'ranger-mark--highlight' },
