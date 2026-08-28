@@ -282,15 +282,13 @@
       },
     });
 
-    var formatDuration = function (seconds) {
-      var m = Math.floor(seconds / 60);
-      var s = Math.round(seconds % 60);
-      return m + ':' + (s < 10 ? '0' : '') + s;
-    };
-
     new Ranger('#loop-range', {
       scaleTicksCount: 6,
-      format: formatDuration,
+      format: function (seconds) {
+        var m = Math.floor(seconds / 60);
+        var s = Math.round(seconds % 60);
+        return m + ':' + (s < 10 ? '0' : '') + s;
+      },
     });
 
     new Ranger('#appointment', {
