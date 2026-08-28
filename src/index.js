@@ -285,9 +285,7 @@ export default class Ranger {
       const max = Number(this.fromSlider.max);
       this.format ||= (position) => Math.round(min * (max / min) ** ((position - min) / (max - min)));
 
-      // `value`/`data-points` are authored in real units (e.g. a $10 price), not the internal linear
-      // drag position — convert them once, up front, so every reader below (toSlider setup,
-      // fillSlider, defaultFromValue, ...) sees a normal linear position like any other slider.
+      // `value`/`data-points` are real units (e.g. a $10 price), not the drag position — convert up front so everything below sees a normal position.
       this.fromSlider.value = Ranger.logScalePosition(Number(this.fromSlider.value), min, max);
       if (this.fromSlider.hasAttribute('data-points')) {
         this.fromSlider.dataset.points = this.parsePoints()
@@ -707,10 +705,7 @@ export default class Ranger {
     slider.setAttribute('aria-valuetext', this.formatDisplayValue(slider.value));
   }
 
-  // Scale/label/fill/marks are only ever touched here — once at init/update, never mid-drag — so
-  // DOM order alone (no z-index) safely keeps them stacked bottom to top. The handles themselves
-  // are excluded: they're positioned above these layers via the static z-index on `.ranger > input`
-  // in core.scss instead (see updateHandleStackOrder for why they can't use DOM order too).
+  // Reorders scale/label/fill/marks by DOM order (safe — only touched here, never mid-drag); the handles stay above them via the static z-index on `.ranger > input` in core.scss instead.
   reorderLayers() {
     [this.scale, this.label, this.fill, this.marksContainer].forEach((layer) => {
       if (layer) {
@@ -721,10 +716,7 @@ export default class Ranger {
     this.updateHandleStackOrder(this.toSlider);
   }
 
-  // Keeps the more-likely-to-grab handle on top. This has to be a z-index toggle, not a DOM move:
-  // it fires on every 'input' event while the user is actively dragging that handle, and reinserting
-  // a node mid-drag (even to its current position) can cancel the browser's native pointer capture
-  // on it, freezing the drag after the first pixel of movement.
+  // Keeps the more-likely-to-grab handle on top via z-index, not a DOM move — this fires on every drag tick, and reordering the DOM mid-drag can cancel the browser's native pointer capture.
   updateHandleStackOrder(target) {
     if (!this.toSlider) {
       return;
@@ -979,8 +971,7 @@ export default class Ranger {
         // A zone's own left edge is the `from` boundary, so it stays anchored there (no centering).
         markEl.style.width = `${toPercent - fromPercent}%`;
       } else {
-        // Centers a point mark on its value — matching the thumb's own center — using the mark's
-        // actual rendered width, so a custom className with a different width still centers correctly.
+        // Centers a point mark on its value (matching the thumb) using its own rendered width.
         markEl.style.marginInlineStart = `${-markEl.offsetWidth / 2}px`;
       }
     });

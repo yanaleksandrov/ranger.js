@@ -36,8 +36,7 @@
 	--ranger-tick-label-color: #888;
 	--ranger-mark-color: #f59e0b;
 
-	// Element selector (not a class) so this reaches a raw <input type="range"> before Ranger even
-	// runs, no `ranger-input` class required in markup — see the pre-init box note below.
+	// Element selector, not a class, so this reaches a raw <input type="range"> before Ranger even runs — see the pre-init box note below.
 	input[type="range"] {
 		// Shared cosmetics — must apply from first paint, or the native control briefly renders unstyled.
 		accent-color: var(--ranger-accent);
@@ -145,10 +144,7 @@
 		}
 	}
 
-	// Colored progress fill — a dedicated layer so it can never paint over either handle. No z-index
-	// needed: it's kept below the marks layer by DOM order (see reorderLayers in index.js), and below
-	// the handles since a z-index:auto element always paints under one with an explicit z-index — see
-	// the handle's own z-index note below.
+	// Colored progress fill — a dedicated layer so it can never paint over either handle; kept below the marks/handle layers, no z-index needed (see reorderLayers in index.js).
 	&-fill {
 		background-color: var(--ranger-accent);
 		// Set via the fillGradient option; 'none' by default, so the plain background-color above shows through.
@@ -169,10 +165,7 @@
 	}
 
 	// Once JS wraps the input (see index.js), `.ranger` owns the visible track, so the input itself becomes an invisible absolute overlay covering it.
-	// Unlike every other layer in this file, this needs an actual z-index rather than DOM order:
-	// updateHandleStackOrder in index.js re-triggers the from/to priority swap on every drag tick, and
-	// reordering the DOM mid-drag instead would risk cancelling the browser's native pointer capture
-	// on the handle being dragged.
+	// Unlike every other layer here, this needs a real z-index: updateHandleStackOrder in index.js swaps it on every drag tick, and reordering the DOM mid-drag risks cancelling native pointer capture.
 	& > input[type="range"] {
 		background-color: transparent;
 		height: 100%;
@@ -295,8 +288,7 @@
 		}
 	}
 
-	// A separate layer from &-scale, since `marks` positions are arbitrary values, not an evenly spaced grid.
-	// Appended above fill but below the handles (see reorderLayers in index.js) — no z-index needed.
+	// Separate from &-scale since mark positions are arbitrary values, not an evenly spaced grid; appended above fill but below the handles (see reorderLayers), no z-index needed.
 	&-marks {
 		inset-inline: 0;
 		height: 100%;
@@ -312,9 +304,7 @@
 		top: 0;
 		width: 2px;
 
-		// Point marks are re-centered on their value in JS (see positionMarks in index.js), via an
-		// inline margin-inline-start computed from the mark's own rendered width — zone marks are
-		// left at this edge anchor, since their left edge is the `from` boundary itself.
+		// Point marks are re-centered on their value in JS (see positionMarks) — zone marks stay at this edge anchor, since their left edge is the `from` boundary itself.
 		ins {
 			color: var(--ranger-tick-label-color);
 			font-size: 11px;
@@ -384,9 +374,7 @@
 	--ranger-tick-color: #bdbdbd;
 	--ranger-tick-label-color: #333;
 
-	// Element selector, not the `ranger-input` class — see the note on Coral's thumb rule above.
-	// Two separate rules, not one comma-joined selector list — a selector list containing a
-	// pseudo-element the browser doesn't recognize gets the whole rule dropped (see the mixin note up top).
+	// Element selector (see Coral's thumb rule above); two separate rules, not one comma-joined list, since an unrecognized pseudo-element drops the whole selector list (see the mixin note up top).
 	input[type="range"] {
 		&::-webkit-slider-thumb,
 		&::-webkit-slider-thumb:hover {
