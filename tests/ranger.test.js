@@ -80,58 +80,71 @@ describe('construction', () => {
   });
 });
 
-describe('range mode via data-max-value', () => {
-  it('creates a second handle when data-max-value is present', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80 });
+describe('range mode via data-points', () => {
+  it('creates a second handle when data-points is present', () => {
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80 });
     const ranger = new Ranger(input);
     expect(ranger.isRange).toBe(true);
     expect(ranger.toSlider).not.toBeNull();
     expect(ranger.toSlider.value).toBe('80');
   });
 
-  it('is not range mode when data-max-value is absent', () => {
+  it('is not range mode when data-points is absent', () => {
     const input = makeInput({ min: 0, max: 100, value: 20 });
     const ranger = new Ranger(input);
     expect(ranger.isRange).toBe(false);
     expect(ranger.toSlider).toBeNull();
   });
 
-  it('removes data-max-value and id from the cloned upper handle', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80, id: 'the-id' });
+  it('removes data-points and id from the cloned upper handle', () => {
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80, id: 'the-id' });
     const ranger = new Ranger(input);
-    expect(ranger.toSlider.hasAttribute('data-max-value')).toBe(false);
+    expect(ranger.toSlider.hasAttribute('data-points')).toBe(false);
     expect(ranger.toSlider.hasAttribute('id')).toBe(false);
   });
 
   it('adds the inputTo class to the cloned upper handle, alongside any existing classes', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80, class: 'existing' });
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80, class: 'existing' });
     const ranger = new Ranger(input);
     expect(ranger.toSlider.classList.contains('existing')).toBe(true);
     expect(ranger.toSlider.classList.contains('ranger-input--to')).toBe(true);
   });
 
-  it('falls back to the slider max when data-max-value is empty', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': '' });
+  it('adds the ranger-input class to both handles on init', () => {
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80 });
+    const ranger = new Ranger(input);
+    expect(ranger.fromSlider.classList.contains('ranger-input')).toBe(true);
+    expect(ranger.toSlider.classList.contains('ranger-input')).toBe(true);
+  });
+
+  it('falls back to the slider max when data-points is empty', () => {
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': '' });
     const ranger = new Ranger(input);
     expect(ranger.toSlider.value).toBe('100');
   });
 
-  it('falls back to the slider max when data-max-value is not a number', () => {
-    const input = makeInput({ min: 0, max: 50, value: 10, 'data-max-value': 'abc' });
+  it('falls back to the slider max when data-points is not a number', () => {
+    const input = makeInput({ min: 0, max: 50, value: 10, 'data-points': 'abc' });
     const ranger = new Ranger(input);
     expect(ranger.toSlider.value).toBe('50');
   });
 
   it('seeds the upper handle to whichever is larger: the from value or the parsed max value', () => {
-    const input = makeInput({ min: 0, max: 100, value: 90, 'data-max-value': 40 });
+    const input = makeInput({ min: 0, max: 100, value: 90, 'data-points': 40 });
     const ranger = new Ranger(input);
     expect(ranger.toSlider.value).toBe('90');
+  });
+
+  it('uses only the first entry of a comma-separated data-points value', () => {
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': '80,95' });
+    const ranger = new Ranger(input);
+    expect(ranger.toSlider.value).toBe('80');
   });
 });
 
 describe('disabled option', () => {
   it('disables both handles and adds is-disabled when true', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80 });
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80 });
     const ranger = new Ranger(input, { disabled: true });
     expect(ranger.fromSlider.disabled).toBe(true);
     expect(ranger.toSlider.disabled).toBe(true);
@@ -146,13 +159,13 @@ describe('disabled option', () => {
   });
 
   it('marks the fill draggable in range mode when not disabled', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80 });
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80 });
     const ranger = new Ranger(input);
     expect(ranger.fill.classList.contains('is-draggable')).toBe(true);
   });
 
   it('does not mark the fill draggable when disabled', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80 });
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80 });
     const ranger = new Ranger(input, { disabled: true });
     expect(ranger.fill.classList.contains('is-draggable')).toBe(false);
   });
@@ -164,7 +177,7 @@ describe('disabled option', () => {
   });
 
   it('does not start a fill-drag when disabled', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 40 });
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 40 });
     const onStart = vi.fn();
     const ranger = new Ranger(input, { disabled: true, onStart });
     mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
@@ -221,6 +234,32 @@ describe('logScale option', () => {
     });
     expect(ranger.format(1)).toBe('custom-1');
   });
+
+  it('treats the initial value/data-points as real units, not raw drag position', () => {
+    const ranger = new Ranger(makeInput({ min: 0.1, max: 10000, step: 1, value: 10 }), { logScale: true });
+
+    // value="10" means a $10 starting price, not "position 10" (which would format to ~$0.10 and
+    // render pinned to the left edge) — the slider itself should land ~40% along the track.
+    expect(Number(ranger.fromSlider.value)).toBeCloseTo(4000, 0);
+    expect(ranger.format(Number(ranger.fromSlider.value))).toBe(10);
+  });
+
+  it('leaves value/position untouched at the min/max endpoints', () => {
+    const ranger = new Ranger(makeInput({ min: 1, max: 1000, value: 1 }), { logScale: true });
+    expect(Number(ranger.fromSlider.value)).toBe(1);
+
+    const rangerAtMax = new Ranger(makeInput({ min: 1, max: 1000, value: 1000 }), { logScale: true });
+    expect(Number(rangerAtMax.fromSlider.value)).toBe(1000);
+  });
+
+  it('converts data-points the same way, for a logScale range slider', () => {
+    const ranger = new Ranger(makeInput({ min: 0.1, max: 10000, step: 1, value: 10, 'data-points': 100 }), {
+      logScale: true,
+    });
+
+    expect(Number(ranger.fromSlider.value)).toBeCloseTo(4000, 0);
+    expect(ranger.format(Number(ranger.toSlider.value))).toBe(100);
+  });
 });
 
 // --- fillSlider ---
@@ -243,18 +282,18 @@ describe('fillSlider (single handle)', () => {
 
 describe('fillSlider (range)', () => {
   it('fills between the two handle percentages', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 200, value: 50, 'data-max-value': 150 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 200, value: 50, 'data-points': 150 }));
     expect(ranger.fill.style.insetInlineStart).toBe('25%');
     expect(ranger.fill.style.width).toBe('50%');
   });
 
   it('adds is-overlapping when both handles share the same value', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 200, value: 100, 'data-max-value': 100 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 200, value: 100, 'data-points': 100 }));
     expect(ranger.wrapper.classList.contains('is-overlapping')).toBe(true);
   });
 
   it('does not add is-overlapping when the handles differ', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 200, value: 50, 'data-max-value': 150 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 200, value: 50, 'data-points': 150 }));
     expect(ranger.wrapper.classList.contains('is-overlapping')).toBe(false);
   });
 });
@@ -267,7 +306,7 @@ describe('aria-valuetext', () => {
   });
 
   it('updates both handles’ aria-valuetext in range mode', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80 });
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80 });
     const ranger = new Ranger(input, { labelSuffix: '%' });
     expect(ranger.fromSlider.getAttribute('aria-valuetext')).toBe('20%');
     expect(ranger.toSlider.getAttribute('aria-valuetext')).toBe('80%');
@@ -320,7 +359,7 @@ describe('controlFromSlider (single mode)', () => {
 
 describe('controlFromSlider / controlToSlider (range mode, minGap)', () => {
   it('keeps the from handle at least minGap below the to handle', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 40 }), { minGap: 10 });
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 40 }), { minGap: 10 });
 
     ranger.fromSlider.value = 35;
     ranger.fromSlider.dispatchEvent(new Event('input'));
@@ -329,7 +368,7 @@ describe('controlFromSlider / controlToSlider (range mode, minGap)', () => {
   });
 
   it('keeps the to handle at least minGap above the from handle', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 40 }), { minGap: 10 });
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 40 }), { minGap: 10 });
 
     ranger.toSlider.value = 25;
     ranger.toSlider.dispatchEvent(new Event('input'));
@@ -338,7 +377,7 @@ describe('controlFromSlider / controlToSlider (range mode, minGap)', () => {
   });
 
   it('leaves values untouched when the gap already satisfies minGap', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 60 }), { minGap: 10 });
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 60 }), { minGap: 10 });
 
     ranger.fromSlider.value = 30;
     ranger.fromSlider.dispatchEvent(new Event('input'));
@@ -347,7 +386,7 @@ describe('controlFromSlider / controlToSlider (range mode, minGap)', () => {
   });
 
   it('has no gap enforcement by default (minGap 0)', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 40 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 40 }));
 
     ranger.fromSlider.value = 40;
     ranger.fromSlider.dispatchEvent(new Event('input'));
@@ -357,7 +396,7 @@ describe('controlFromSlider / controlToSlider (range mode, minGap)', () => {
 
   it('fires onChange with [from, to] in range mode', () => {
     const onChange = vi.fn();
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 60 }), { onChange });
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 60 }), { onChange });
 
     ranger.toSlider.value = 70;
     ranger.toSlider.dispatchEvent(new Event('input'));
@@ -366,8 +405,10 @@ describe('controlFromSlider / controlToSlider (range mode, minGap)', () => {
   });
 
   it('keeps the upper handle stacked above at/below the midpoint, and below past it', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 10, 'data-max-value': 20 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 10, 'data-points': 20 }));
 
+    // A z-index toggle, not a DOM move — see updateHandleStackOrder in src/index.js for why moving
+    // the dragged node mid-drag isn't safe.
     expect(ranger.toSlider.style.zIndex).toBe('4');
 
     ranger.toSlider.value = 80;
@@ -474,7 +515,7 @@ describe('resolveValue / minValue & maxValue', () => {
   });
 
   it('clamps both handles independently in range mode, end to end', () => {
-    const input = makeInput({ min: 0, max: 100, value: 50, 'data-max-value': 60 });
+    const input = makeInput({ min: 0, max: 100, value: 50, 'data-points': 60 });
     const ranger = new Ranger(input, { minValue: 20, maxValue: 80 });
 
     ranger.fromSlider.value = 5;
@@ -525,7 +566,7 @@ describe('resetSlider (dblclick)', () => {
   });
 
   it('resets the to handle to its initial value', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 60 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 60 }));
 
     ranger.toSlider.value = 90;
     ranger.toSlider.dispatchEvent(new Event('input'));
@@ -670,7 +711,7 @@ describe('handleTrackClick', () => {
   });
 
   it('in range mode, moves whichever handle is closer to the click (upper handle)', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 10, 'data-max-value': 90 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 10, 'data-points': 90 }));
     mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
 
     ranger.wrapper.dispatchEvent(new MouseEvent('click', { clientX: 85, bubbles: true }));
@@ -680,7 +721,7 @@ describe('handleTrackClick', () => {
   });
 
   it('in range mode, moves the from handle when the click is closer to it', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 10, 'data-max-value': 90 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 10, 'data-points': 90 }));
     mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
 
     ranger.wrapper.dispatchEvent(new MouseEvent('click', { clientX: 15, bubbles: true }));
@@ -696,7 +737,7 @@ describe('handleFillDragStart (drag the whole range via the fill)', () => {
   it('drags both handles together by the same delta, clamped to bounds', () => {
     const onStart = vi.fn();
     const onEnd = vi.fn();
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 40 }), { onStart, onEnd });
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 40 }), { onStart, onEnd });
     mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
 
     ranger.fill.dispatchEvent(new PointerEvent('pointerdown', { clientX: 0, pointerId: 1, bubbles: true }));
@@ -716,7 +757,7 @@ describe('handleFillDragStart (drag the whole range via the fill)', () => {
   });
 
   it('reverses drag direction under RTL', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 40 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 40 }));
     ranger.wrapper.style.direction = 'rtl';
     mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
 
@@ -782,7 +823,7 @@ describe('drag/focus callbacks', () => {
 
   it('reports [from, to] onStart for a whole-range fill drag', () => {
     const onStart = vi.fn();
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 40 }), { onStart });
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 40 }), { onStart });
     mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
 
     ranger.fill.dispatchEvent(new PointerEvent('pointerdown', { clientX: 0, pointerId: 1, bubbles: true }));
@@ -813,7 +854,7 @@ describe('external fromInput/toInput two-way sync', () => {
   });
 
   it('keeps the external toInput synced with the upper handle', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 60 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 60 }), {
       toInput: (() => {
         const el = document.createElement('input');
         document.body.appendChild(el);
@@ -831,15 +872,15 @@ describe('external fromInput/toInput two-way sync', () => {
 // --- fixedRange — an appointment-style slot that slides but never resizes ---
 
 describe('fixedRange', () => {
-  it('locks in the initial gap (data-max-value minus value) when set to true', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+  it('locks in the initial gap (data-points minus value) when set to true', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 50 }), {
       fixedRange: true,
     });
     expect(ranger.rangeSize).toBe(30);
   });
 
   it('dragging the from handle slides the to handle by the same amount', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 50 }), {
       fixedRange: true,
     });
 
@@ -851,7 +892,7 @@ describe('fixedRange', () => {
   });
 
   it('dragging the to handle slides the from handle by the same amount', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 50 }), {
       fixedRange: true,
     });
 
@@ -863,7 +904,7 @@ describe('fixedRange', () => {
   });
 
   it('clamps the whole pair at the minimum instead of letting it shrink', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 50 }), {
       fixedRange: true,
     });
 
@@ -875,7 +916,7 @@ describe('fixedRange', () => {
   });
 
   it('clamps the whole pair at the maximum instead of letting it shrink', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 50 }), {
       fixedRange: true,
     });
 
@@ -886,8 +927,8 @@ describe('fixedRange', () => {
     expect(Number(ranger.fromSlider.value)).toBe(70); // gap preserved, not clipped to 80
   });
 
-  it('accepts an explicit numeric gap, overriding whatever data-max-value set up', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+  it('accepts an explicit numeric gap, overriding whatever data-points set up', () => {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 50 }), {
       fixedRange: 10,
     });
 
@@ -898,7 +939,7 @@ describe('fixedRange', () => {
 
   it('fires onChange with [from, to] and the handle that was actually dragged', () => {
     const onChange = vi.fn();
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 50 }), {
       fixedRange: true,
       onChange,
     });
@@ -911,7 +952,7 @@ describe('fixedRange', () => {
 
   it('keeps the gap fixed through a Shift+Arrow fine nudge', () => {
     const ranger = new Ranger(
-      makeInput({ min: 0, max: 100, value: 20, step: 1, 'data-max-value': 50 }),
+      makeInput({ min: 0, max: 100, value: 20, step: 1, 'data-points': 50 }),
       { fixedRange: true },
     );
 
@@ -922,7 +963,7 @@ describe('fixedRange', () => {
   });
 
   it('is still fully compatible with dragging the whole range via the fill', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 50 }), {
       fixedRange: true,
     });
     mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
@@ -935,7 +976,7 @@ describe('fixedRange', () => {
   });
 
   it('ignores minGap while fixedRange is active', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 50 }), {
       fixedRange: true,
       minGap: 90, // would normally force a huge separation
     });
@@ -974,7 +1015,7 @@ describe('setValue / setRange', () => {
 
   it('setRange moves both handles at once', () => {
     const onChange = vi.fn();
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 30 }), { onChange });
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 30 }), { onChange });
 
     ranger.setRange(40, 50);
 
@@ -985,7 +1026,7 @@ describe('setValue / setRange', () => {
 
   it('does not corrupt the pair when minGap would otherwise clamp against the stale value', () => {
     // Regression guard: dispatching on fromSlider before toSlider is updated would clamp against toSlider's OLD value.
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 30 }), { minGap: 5 });
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 30 }), { minGap: 5 });
 
     ranger.setRange(40, 50);
 
@@ -999,7 +1040,7 @@ describe('setValue / setRange', () => {
   });
 
   it('setRange keeps the fixedRange gap fixed regardless of the values passed', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 50 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 50 }), {
       fixedRange: true,
     });
 
@@ -1014,7 +1055,7 @@ describe('setValue / setRange', () => {
 
 describe('update()', () => {
   it('updates min/max on both handles and re-clamps out-of-range values', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 90, 'data-max-value': 95 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 90, 'data-points': 95 }));
 
     ranger.update({ min: 0, max: 50 });
 
@@ -1026,7 +1067,7 @@ describe('update()', () => {
   });
 
   it('toggles disabled on both handles, the wrapper class, and whole-range dragging', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 60 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 60 }));
     mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
 
     ranger.update({ disabled: true });
@@ -1044,7 +1085,7 @@ describe('update()', () => {
   });
 
   it('re-enables whole-range dragging when disabled is turned back off', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 60 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 60 }), {
       disabled: true,
     });
     mockRect(ranger.wrapper, { left: 0, width: 100, right: 100 });
@@ -1117,7 +1158,7 @@ describe('update()', () => {
   });
 
   it('re-derives rangeSize when fixedRange is turned on after mount', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 65 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 20, 'data-points': 65 }));
 
     ranger.update({ fixedRange: true });
     expect(ranger.rangeSize).toBe(45);
@@ -1159,6 +1200,26 @@ describe('marks', () => {
     expect(marks).toHaveLength(2);
     expect(marks[0].style.insetInlineStart).toBe('25%');
     expect(marks[1].style.insetInlineStart).toBe('75%');
+  });
+
+  it('centers a point mark on its value (matching the thumb), but leaves a zone mark edge-anchored', () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 10 });
+
+    try {
+      const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [{ value: 40 }, { from: 10, to: 30 }] });
+      const [pointMark, zoneMark] = ranger.marksContainer.querySelectorAll('.ranger-mark');
+
+      // offsetWidth stubbed to 10px above — a point mark shifts back by half of its own rendered width.
+      expect(pointMark.style.marginInlineStart).toBe('-5px');
+      expect(zoneMark.style.marginInlineStart).toBe('');
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalDescriptor);
+      } else {
+        delete HTMLElement.prototype.offsetWidth;
+      }
+    }
   });
 
   it('accepts the object form with an optional label and className', () => {

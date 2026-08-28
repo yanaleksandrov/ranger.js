@@ -15,31 +15,12 @@
 	height: var(--ranger-thumb-height);
 }
 
-// Skin tokens — the default skin. Declared on :root so custom properties reach both the pre-init raw <input> and the post-init `.ranger` tree.
+// Skin tokens — the default skin, "Coral": a flat, squared-off look with a thin bar-shaped handle, in the spirit of Ion.RangeSlider skins. Declared on :root so custom properties reach both the pre-init raw <input> and the post-init `.ranger` tree.
 :root {
-	--ranger-height: 10px;
-	--ranger-radius: 3px;
-	--ranger-gap-top: 2.5rem;
-	--ranger-gap-bottom: 4rem;
-	--ranger-bg: #f1f1f1;
-	--ranger-accent: #0b6dea;
-	--ranger-thumb-width: 1.25rem;
-	--ranger-thumb-height: 1.25rem;
-	--ranger-thumb-radius: 4px;
-	--ranger-thumb-bg: #fff;
-	--ranger-thumb-hover-bg: #f7f7f7;
-	--ranger-thumb-border: #bbb;
-	--ranger-thumb-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath stroke='%23bbb' d='M4.5 2v8M7.5 2v8'/%3E%3C/svg%3E");
-	--ranger-thumb-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
-	--ranger-tick-color: #bdbdbd;
-	--ranger-tick-label-color: #333;
-	--ranger-mark-color: #f59e0b;
-}
-
-// "Coral" skin — a flatter, squared-off look with a thin bar-shaped handle. Activate with `data-skin="coral"` on `.ranger` or any ancestor; being plain custom-property overrides, an already-mounted slider re-skins live except for the fill color, which needs an explicit `.fillSlider()` call (see fillSlider in index.js).
-[data-skin="coral"] {
 	--ranger-height: 6px;
 	--ranger-radius: 0;
+	--ranger-gap-top: 2.5rem;
+	--ranger-gap-bottom: 4rem;
 	--ranger-bg: #e2e2e2;
 	--ranger-accent: #ff6f59;
 	--ranger-thumb-width: 1.25rem;
@@ -53,105 +34,10 @@
 	--ranger-thumb-shadow: none;
 	--ranger-tick-color: #bdbdbd;
 	--ranger-tick-label-color: #888;
+	--ranger-mark-color: #f59e0b;
 
-	.ranger-scale {
-		padding: 0;
-	}
-
-	.ranger-input {
-		&::-webkit-slider-thumb,
-		&::-webkit-slider-thumb:hover {
-			color: var(--ranger-accent);
-			mask: url("data:image/svg+xml,%3Csvg width='3' height='16' viewBox='0 0 3 16' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='3' height='16' fill='white'/%3E%3C/svg%3E") center / 3px 16px no-repeat;
-			background-color: currentColor;
-		}
-
-		&::-moz-range-thumb,
-		&::-moz-range-thumb:hover {
-			color: var(--ranger-accent);
-			mask: url("data:image/svg+xml,%3Csvg width='3' height='16' viewBox='0 0 3 16' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='3' height='16' fill='white'/%3E%3C/svg%3E") center / 3px 16px no-repeat;
-			background-color: currentColor;
-		}
-	}
-
-	.ranger-label-item {
-		background-color: #fff;
-		border: 1px solid var(--ranger-bg);
-		border-radius: 5px;
-		padding: 4px 6px;
-
-		&:after {
-			content: '';
-			height: 10px;
-			position: absolute;
-			width: 10px;
-			background-color: #fff;
-			z-index: 0;
-			border-right: 1px solid var(--expansa-border, #dfe2e3);
-			border-bottom: 1px solid var(--expansa-border, #dfe2e3);
-			border-bottom-right-radius: 3px;
-			border-top-left-radius: 8px;
-			bottom: -6px;
-			left: calc(50% - 5px);
-			transform: rotate(45deg);
-		}
-	}
-}
-
-.ranger {
-	background-color: var(--ranger-bg);
-	border-radius: var(--ranger-radius);
-	cursor: pointer;
-	height: var(--ranger-height);
-	margin-block: var(--ranger-gap-top) var(--ranger-gap-bottom);
-	position: relative;
-
-	&.is-disabled {
-		opacity: 0.5;
-		pointer-events: none;
-	}
-
-	// Handles landing on the exact same value would share a pixel and one z-index would swallow every click, so split the shared hit area in half instead.
-	&.is-overlapping {
-		.ranger-input:not(.ranger-input--to)::-webkit-slider-thumb {
-			clip-path: inset(0 50% 0 0);
-		}
-
-		.ranger-input:not(.ranger-input--to)::-moz-range-thumb {
-			clip-path: inset(0 50% 0 0);
-		}
-
-		.ranger-input--to::-webkit-slider-thumb {
-			clip-path: inset(0 0 0 50%);
-		}
-
-		.ranger-input--to::-moz-range-thumb {
-			clip-path: inset(0 0 0 50%);
-		}
-	}
-
-	// Colored progress fill — a dedicated layer so it can never paint over either handle.
-	&-fill {
-		background-color: var(--ranger-accent);
-		// Set via the fillGradient option; 'none' by default, so the plain background-color above shows through.
-		background-image: var(--ranger-fill-gradient, none);
-		border-radius: var(--ranger-radius);
-		height: 100%;
-		inset-inline-start: 0;
-		pointer-events: none;
-		position: absolute;
-		top: 0;
-		touch-action: none;
-		z-index: 1;
-
-		// Range mode only (see is-draggable in index.js) — grab the fill to slide both handles together.
-		&.is-draggable {
-			cursor: grab;
-			pointer-events: auto;
-		}
-	}
-
-	&-input {
+	// Element selector, not a class, so this reaches a raw <input type="range"> before Ranger even runs — see the pre-init box note below.
+	input[type="range"] {
 		// Shared cosmetics — must apply from first paint, or the native control briefly renders unstyled.
 		accent-color: var(--ranger-accent);
 		appearance: none;
@@ -162,7 +48,7 @@
 		padding: 0;
 		width: 100%;
 
-		// Pre-init box: a real in-flow track matching `.ranger` above, so nothing shifts once JS swaps this for the absolute overlay below.
+		// Pre-init box: a real in-flow track matching `.ranger` below, so nothing shifts once JS swaps this for the absolute overlay.
 		background-color: var(--ranger-bg);
 		display: block;
 		height: var(--ranger-height);
@@ -202,14 +88,6 @@
 			background: transparent;
 		}
 
-		&::-webkit-slider-thumb:hover {
-			background-color: var(--ranger-thumb-hover-bg);
-		}
-
-		&::-moz-range-thumb:hover {
-			background-color: var(--ranger-thumb-hover-bg);
-		}
-
 		&::-webkit-slider-runnable-track {
 			margin-inline: calc(var(--ranger-thumb-width) / 2 * -1);
 		}
@@ -217,10 +95,78 @@
 		&::-moz-range-track {
 			margin-inline: calc(var(--ranger-thumb-width) / 2 * -1);
 		}
+
+		&::-webkit-slider-thumb,
+		&::-webkit-slider-thumb:hover {
+			color: var(--ranger-accent);
+			mask: url("data:image/svg+xml,%3Csvg width='3' height='16' viewBox='0 0 3 16' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='3' height='16' fill='white'/%3E%3C/svg%3E") center / 3px 16px no-repeat;
+			background-color: currentColor;
+		}
+
+		&::-moz-range-thumb,
+		&::-moz-range-thumb:hover {
+			color: var(--ranger-accent);
+			mask: url("data:image/svg+xml,%3Csvg width='3' height='16' viewBox='0 0 3 16' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='3' height='16' fill='white'/%3E%3C/svg%3E") center / 3px 16px no-repeat;
+			background-color: currentColor;
+		}
+	}
+}
+
+.ranger {
+	background-color: var(--ranger-bg);
+	border-radius: var(--ranger-radius);
+	cursor: pointer;
+	height: var(--ranger-height);
+	margin-block: var(--ranger-gap-top) var(--ranger-gap-bottom);
+	position: relative;
+
+	&.is-disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	// Handles landing on the exact same value would share a pixel and one z-index would swallow every click, so split the shared hit area in half instead.
+	&.is-overlapping {
+		input[type="range"]:not(.ranger-input--to)::-webkit-slider-thumb {
+			clip-path: inset(0 50% 0 0);
+		}
+
+		input[type="range"]:not(.ranger-input--to)::-moz-range-thumb {
+			clip-path: inset(0 50% 0 0);
+		}
+
+		.ranger-input--to::-webkit-slider-thumb {
+			clip-path: inset(0 0 0 50%);
+		}
+
+		.ranger-input--to::-moz-range-thumb {
+			clip-path: inset(0 0 0 50%);
+		}
+	}
+
+	// Colored progress fill — a dedicated layer so it can never paint over either handle; kept below the marks/handle layers, no z-index needed (see reorderLayers in index.js).
+	&-fill {
+		background-color: var(--ranger-accent);
+		// Set via the fillGradient option; 'none' by default, so the plain background-color above shows through.
+		background-image: var(--ranger-fill-gradient, none);
+		border-radius: var(--ranger-radius);
+		height: 100%;
+		inset-inline-start: 0;
+		pointer-events: none;
+		position: absolute;
+		top: 0;
+		touch-action: none;
+
+		// Range mode only (see is-draggable in index.js) — grab the fill to slide both handles together.
+		&.is-draggable {
+			cursor: grab;
+			pointer-events: auto;
+		}
 	}
 
 	// Once JS wraps the input (see index.js), `.ranger` owns the visible track, so the input itself becomes an invisible absolute overlay covering it.
-	& > &-input {
+	// Unlike every other layer here, this needs a real z-index: updateHandleStackOrder in index.js swaps it on every drag tick, and reordering the DOM mid-drag risks cancelling native pointer capture.
+	& > input[type="range"] {
 		background-color: transparent;
 		height: 100%;
 		inset-inline-start: 0;
@@ -246,13 +192,30 @@
 		&-item {
 			position: absolute;
 			white-space: nowrap;
-			background-color: #f1f1f1;
 			font-size: 11px;
-			padding: 2px 5px;
-			border-radius: 2px;
+			background-color: #fff;
+			border-radius: 5px;
+			padding: 4px 6px;
+			border: 1px solid #dfe2e3;
+
+			&:after {
+				content: '';
+				height: 10px;
+				position: absolute;
+				width: 10px;
+				background-color: #fff;
+				border-right: 1px solid #dfe2e3;
+				border-bottom: 1px solid #dfe2e3;
+				border-bottom-right-radius: 3px;
+				border-top-left-radius: 8px;
+				bottom: -6px;
+				left: calc(50% - 5px);
+				transform: rotate(45deg);
+			}
 		}
 	}
 
+	// Appended first among `.ranger`'s children (see reorderLayers in index.js), so it paints below every other layer without z-index.
 	&-scale {
 		display: flex;
 		justify-content: space-between;
@@ -261,8 +224,9 @@
 		top: calc(var(--ranger-height, 8px) - 2px);
 		white-space: nowrap;
 		width: calc(100% - 1px);
-		z-index: -1;
 		box-sizing: border-box;
+		padding: 0;
+		cursor: initial;
 
 		&-tick {
 			position: relative;
@@ -324,14 +288,13 @@
 		}
 	}
 
-	// A separate layer from &-scale, since `marks` positions are arbitrary values, not an evenly spaced grid.
+	// Separate from &-scale since mark positions are arbitrary values, not an evenly spaced grid; appended above fill but below the handles (see reorderLayers), no z-index needed.
 	&-marks {
 		inset-inline: 0;
 		height: 100%;
 		pointer-events: none;
 		position: absolute;
 		top: 0;
-		z-index: 2;
 	}
 
 	&-mark {
@@ -341,7 +304,7 @@
 		top: 0;
 		width: 2px;
 
-		// Anchored at the mark's own edge (not centered), sidestepping the need for an RTL-aware centering transform.
+		// Point marks are re-centered on their value in JS (see positionMarks) — zone marks stay at this edge anchor, since their left edge is the `from` boundary itself.
 		ins {
 			color: var(--ranger-tick-label-color);
 			font-size: 11px;
@@ -389,6 +352,68 @@
 			border: 1px solid #ddd;
 			border-radius: 4px;
 			padding: 0.4rem 0.6rem;
+		}
+	}
+}
+
+// "Classic" skin — the original look: rounded track, square handle with a grip icon. Opt in with `data-skin="classic"` on `.ranger` or any ancestor; being plain custom-property overrides, an already-mounted slider re-skins live except for the fill color, which needs an explicit `.fillSlider()` call (see fillSlider in index.js).
+[data-skin="classic"] {
+	--ranger-height: 10px;
+	--ranger-radius: 3px;
+	--ranger-bg: #f1f1f1;
+	--ranger-accent: #0b6dea;
+	--ranger-thumb-width: 1.25rem;
+	--ranger-thumb-height: 1.25rem;
+	--ranger-thumb-radius: 4px;
+	--ranger-thumb-bg: #fff;
+	--ranger-thumb-hover-bg: #f7f7f7;
+	--ranger-thumb-border: #bbb;
+	--ranger-thumb-icon-size: auto;
+	--ranger-thumb-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath stroke='%23bbb' d='M4.5 2v8M7.5 2v8'/%3E%3C/svg%3E");
+	--ranger-thumb-shadow: inset 0 0 1px #fff, inset 0 1px 6px #ebebeb, 1px 1px 4px rgba(0, 0, 0, .1);
+	--ranger-tick-color: #bdbdbd;
+	--ranger-tick-label-color: #333;
+
+	// Element selector (see Coral's thumb rule above); two separate rules, not one comma-joined list, since an unrecognized pseudo-element drops the whole selector list (see the mixin note up top).
+	input[type="range"] {
+		&::-webkit-slider-thumb,
+		&::-webkit-slider-thumb:hover {
+			color: initial;
+			mask: none;
+		}
+
+		&::-webkit-slider-thumb {
+			background-color: var(--ranger-thumb-bg);
+		}
+
+		&::-webkit-slider-thumb:hover {
+			background-color: var(--ranger-thumb-hover-bg);
+		}
+	}
+
+	input[type="range"] {
+		&::-moz-range-thumb,
+		&::-moz-range-thumb:hover {
+			color: initial;
+			mask: none;
+		}
+
+		&::-moz-range-thumb {
+			background-color: var(--ranger-thumb-bg);
+		}
+
+		&::-moz-range-thumb:hover {
+			background-color: var(--ranger-thumb-hover-bg);
+		}
+	}
+
+	.ranger-label-item {
+		background-color: #f1f1f1;
+		padding: 2px 5px;
+		border-radius: 2px;
+
+		&:after {
+			content: none;
 		}
 	}
 }

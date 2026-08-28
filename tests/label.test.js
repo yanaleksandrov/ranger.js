@@ -85,7 +85,7 @@ describe('label position stays centered, even past the track edges', () => {
   });
 
   it('positions both handles independently in range mode, each centered on its own edge', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 0, 'data-max-value': 100 }));
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 0, 'data-points': 100 }));
     mockWidth(ranger.label, 200);
     mockOffsetWidth(ranger.labelFrom, 40);
     mockOffsetWidth(ranger.labelTo, 60);
@@ -179,7 +179,7 @@ describe('createLabel (single handle)', () => {
 
 describe('createLabel (range)', () => {
   it('creates two label items for a range slider', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80 });
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80 });
     const ranger = new Ranger(input);
 
     expect(ranger.labelFrom).toBeTruthy();
@@ -195,7 +195,7 @@ describe('createLabel (range)', () => {
   });
 
   it('merges into a single "from – to" label when the two labels overlap/are close', () => {
-    const input = makeInput({ min: 0, max: 100, value: 20, 'data-max-value': 80 });
+    const input = makeInput({ min: 0, max: 100, value: 20, 'data-points': 80 });
     const ranger = new Ranger(input);
 
     // jsdom performs no layout (both rects default to all-zero), so mock the rects to make the "within the 10px gate" intent explicit.
@@ -210,7 +210,7 @@ describe('createLabel (range)', () => {
   });
 
   it('collapses to a single value (no dash) when both handles share the same value', () => {
-    const input = makeInput({ min: 0, max: 100, value: 50, 'data-max-value': 50 });
+    const input = makeInput({ min: 0, max: 100, value: 50, 'data-points': 50 });
     const ranger = new Ranger(input);
 
     mockRect(ranger.labelFrom, { left: 40, right: 60 });
@@ -222,7 +222,7 @@ describe('createLabel (range)', () => {
   });
 
   it('shows both labels separately when they are far apart', () => {
-    const input = makeInput({ min: 0, max: 100, value: 10, 'data-max-value': 90 });
+    const input = makeInput({ min: 0, max: 100, value: 10, 'data-points': 90 });
     const ranger = new Ranger(input);
 
     mockRect(ranger.labelFrom, { left: 0, right: 20 });
@@ -236,7 +236,7 @@ describe('createLabel (range)', () => {
   });
 
   it('formats both labels through a custom format function', () => {
-    const input = makeInput({ min: 0, max: 10, value: 2, 'data-max-value': 8 });
+    const input = makeInput({ min: 0, max: 10, value: 2, 'data-points': 8 });
     const ranger = new Ranger(input, { format: (v) => `L${v}` });
 
     mockRect(ranger.labelFrom, { left: 0, right: 20 });
@@ -316,7 +316,7 @@ describe('rich (HTML) label content', () => {
   });
 
   it('carries rich content through the close-handle merge too', () => {
-    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 48, 'data-max-value': 52 }), {
+    const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 48, 'data-points': 52 }), {
       format: (v) => `<i>${v}</i>`,
     });
     mockRect(ranger.labelFrom, { left: 40, right: 60 });

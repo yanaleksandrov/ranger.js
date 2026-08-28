@@ -11,6 +11,7 @@ export default class Ranger {
   static DEFAULTS = {
     classes: {
       container: 'ranger',
+      input: 'ranger-input',
       fill: 'ranger-fill',
       inputTo: 'ranger-input--to',
       scale: 'ranger-scale',
@@ -113,6 +114,16 @@ export default class Ranger {
     return ((value - start) / (end - start)) * 100;
   }
 
+  /**
+   * Inverse of logScale's default position→value mapping (`min * (max/min) ** ((position-min)/(max-min))`):
+   * given a real/displayed value (e.g. a $10 price), returns the linear drag position that would
+   * display it. Lets markup declare `value`/`data-points` in real units — no logarithm required on
+   * whichever end renders the initial HTML — while dragging itself stays linear post-init.
+   */
+  static logScalePosition(value, min, max) {
+    return min + (max - min) * (Math.log(value / min) / Math.log(max / min));
+  }
+
   // Smallest divisor of lastIndex >= minSkip, so 0/lastIndex stay included; falls back to lastIndex.
   static findSkip(lastIndex, minSkip) {
     for (let skip = minSkip; skip <= lastIndex; skip++) {
@@ -167,7 +178,7 @@ export default class Ranger {
   // Moves both handles; both raw values are set before either dispatches so minGap/fixedRange see the real pair.
   setRange(from, to) {
     if (!this.isRange) {
-      throw new Error('Ranger: setRange() requires a range slider (data-max-value)');
+      throw new Error('Ranger: setRange() requires a range slider (data-points)');
     }
 
     this.fromSlider.value = from;
@@ -253,6 +264,8 @@ export default class Ranger {
       this.markEntries = null;
     }
 
+    this.reorderLayers();
+
     this.fromSlider.dispatchEvent(new Event('input'));
     if (this.isRange) {
       this.toSlider.dispatchEvent(new Event('input'));
@@ -271,11 +284,21 @@ export default class Ranger {
       const min = Number(this.fromSlider.min);
       const max = Number(this.fromSlider.max);
       this.format ||= (position) => Math.round(min * (max / min) ** ((position - min) / (max - min)));
+
+      // `value`/`data-points` are real units (e.g. a $10 price), not the drag position — convert up front so everything below sees a normal position.
+      this.fromSlider.value = Ranger.logScalePosition(Number(this.fromSlider.value), min, max);
+      if (this.fromSlider.hasAttribute('data-points')) {
+        this.fromSlider.dataset.points = this.parsePoints()
+          .map((point) => Ranger.logScalePosition(point, min, max))
+          .join(',');
+      }
     }
 
     /* Neutralizes native `step` to "any" (it re-snaps assignments, breaking fineStep); `this.step` holds the real one. */
     this.step = this.fromSlider.step;
     this.fromSlider.step = 'any';
+
+    this.fromSlider.classList.add(this.classes.input);
 
     const wrapper = document.createElement('div');
     wrapper.classList.add(this.classes.container);
@@ -289,22 +312,21 @@ export default class Ranger {
     // Purely visual; hidden from AT (the value's already exposed via the handle).
     this.fill.setAttribute('aria-hidden', 'true');
 
-    if (this.fromSlider.hasAttribute('data-max-value')) {
+    if (this.fromSlider.hasAttribute('data-points')) {
       this.toSlider = this.fromSlider.cloneNode(false);
-      this.toSlider.removeAttribute('data-max-value');
+      this.toSlider.removeAttribute('data-points');
       this.toSlider.removeAttribute('id');
       this.toSlider.className += ` ${this.classes.inputTo}`;
-      this.toSlider.value = Math.max(Number(this.fromSlider.value), this.parseMaxValue());
+      this.toSlider.value = Math.max(Number(this.fromSlider.value), this.parsePoints()[0]);
 
       wrapper.appendChild(this.toSlider);
-      this.updateHandleStackOrder(this.toSlider);
 
       if (this.fixedRange) {
         this.rangeSize = typeof this.fixedRange === 'number'
           ? this.fixedRange
           : Number(this.toSlider.value) - Number(this.fromSlider.value);
 
-        // Honors an explicit numeric fixedRange even if data-max-value's own gap differs.
+        // Honors an explicit numeric fixedRange even if data-points's own gap differs.
         if (typeof this.fixedRange === 'number') {
           const max = Number(this.fromSlider.max);
           this.toSlider.value = Ranger.roundToStep(
@@ -346,16 +368,25 @@ export default class Ranger {
     if (this.marks.length > 0) {
       this.marksContainer = this.createMarks();
     }
+
+    this.reorderLayers();
   }
 
   /**
-   * Resolve the upper handle's start from data-max-value, or fall back to max.
+   * Parses data-points into extra handle starting values (comma-separated, forward-compatible with
+   * more than one) — today only the first entry is used, for the upper handle. Falls back to max
+   * wherever an entry is missing or not a number.
    */
-  parseMaxValue() {
-    const attr = this.fromSlider.dataset.maxValue;
-    const parsed = attr ? Number(attr) : NaN;
+  parsePoints() {
+    const attr = this.fromSlider.dataset.points ?? '';
+    const parts = attr.length > 0 ? attr.split(',') : [''];
 
-    return Number.isNaN(parsed) ? Number(this.fromSlider.max) : parsed;
+    return parts.map((part) => {
+      const trimmed = part.trim();
+      const value = trimmed === '' ? NaN : Number(trimmed);
+
+      return Number.isNaN(value) ? Number(this.fromSlider.max) : value;
+    });
   }
 
   addListeners() {
@@ -674,7 +705,18 @@ export default class Ranger {
     slider.setAttribute('aria-valuetext', this.formatDisplayValue(slider.value));
   }
 
-  // Keeps the more-likely-to-grab handle on top; both stay above the fill layer regardless.
+  // Reorders scale/label/fill/marks by DOM order (safe — only touched here, never mid-drag); the handles stay above them via the static z-index on `.ranger > input` in core.scss instead.
+  reorderLayers() {
+    [this.scale, this.label, this.fill, this.marksContainer].forEach((layer) => {
+      if (layer) {
+        this.wrapper.appendChild(layer);
+      }
+    });
+
+    this.updateHandleStackOrder(this.toSlider);
+  }
+
+  // Keeps the more-likely-to-grab handle on top via z-index, not a DOM move — this fires on every drag tick, and reordering the DOM mid-drag can cancel the browser's native pointer capture.
   updateHandleStackOrder(target) {
     if (!this.toSlider) {
       return;
@@ -926,7 +968,11 @@ export default class Ranger {
       markEl.style.insetInlineStart = `${fromPercent}%`;
 
       if (toPercent !== undefined) {
+        // A zone's own left edge is the `from` boundary, so it stays anchored there (no centering).
         markEl.style.width = `${toPercent - fromPercent}%`;
+      } else {
+        // Centers a point mark on its value (matching the thumb) using its own rendered width.
+        markEl.style.marginInlineStart = `${-markEl.offsetWidth / 2}px`;
       }
     });
   }

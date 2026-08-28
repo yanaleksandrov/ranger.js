@@ -6,8 +6,8 @@
   <h1>Демо Ranger.js</h1>
 
   <select id="skin-switcher" class="skin-switcher">
-    <option value="">🎨 Скин: обычный</option>
-    <option value="coral">🎨 Скин: Coral</option>
+    <option value="">🎨 Скин: Coral (по умолчанию)</option>
+    <option value="classic">🎨 Скин: Классический</option>
   </select>
 
   <section>
@@ -16,9 +16,9 @@
       без шкалы и всплывающей подписи (<code>scaleTicksCount: 0</code>, <code>labelIsVisible: false</code>)
       — для панели быстрых настроек; диапазонный фильтр цены, отключённый через <code>disabled</code>,
       потому что по текущим условиям поиска нет подходящих товаров.</p>
-    <input class="ranger-input" type="range" id="volume" min="0" max="100" step="1" value="40"/>
-    <input class="ranger-input" type="range" id="brightness" min="0" max="10" step="1" value="4"/>
-    <input class="ranger-input" type="range" id="price-disabled" min="0" max="1000" step="10" value="200" data-max-value="800"/>
+    <input type="range" id="volume" min="0" max="100" step="1" value="40"/>
+    <input type="range" id="brightness" min="0" max="10" step="1" value="4"/>
+    <input type="range" id="price-disabled" min="0" max="1000" step="10" value="200" data-points="800"/>
   </section>
 
   <section>
@@ -26,12 +26,12 @@
     <p>Произвольный <code>step</code>, отрицательный <code>min</code>, суффикс у меток и делений —
       как регулятор компенсации экспозиции в камере или фоторедакторе, где нужен шаг в десятые доли
       ступени в обе стороны от нуля.</p>
-    <input class="ranger-input" type="range" id="exposure" min="-2" max="2" step="0.1" value="-0.3"/>
+    <input type="range" id="exposure" min="-2" max="2" step="0.1" value="-0.3"/>
   </section>
 
   <section>
     <h2>3. Диапазон зарплат, синхронизированный с полями</h2>
-    <p>Два ползунка через <code>data-max-value</code> задают вилку зарплаты в вакансии, значения
+    <p>Два ползунка через <code>data-points</code> задают вилку зарплаты в вакансии, значения
       дублируются в числовые поля ниже, а <code>minGap</code> не даёт вилке схлопнуться меньше чем на
       $1000.</p>
     <div class="form_control">
@@ -44,7 +44,7 @@
         <input class="form_control_container__time__input" type="number" id="salaryTo" min="0" max="50000" value="35000"/>
       </span>
     </div>
-    <input class="ranger-input" type="range" id="salary-range" min="0" max="50000" step="1" value="2000" data-max-value="35000"/>
+    <input type="range" id="salary-range" min="0" max="50000" step="1" value="2000" data-points="35000"/>
   </section>
 
   <section>
@@ -53,7 +53,7 @@
       0–100%), а <code>snapPoints</code> магнитом притягивает любой из них к стандартным уровням
       скидки 25%, 50% или 75%, как только он оказывается в пределах <code>snapThreshold</code> от
       одного из них.</p>
-    <input class="ranger-input" type="range" id="discount-range" min="0" max="100" step="1" value="48" data-max-value="52"/>
+    <input type="range" id="discount-range" min="0" max="100" step="1" value="48" data-points="52"/>
   </section>
 
   <section>
@@ -65,8 +65,8 @@
       каждой парой основных, а <code>scaleAnimatedTicksCount</code> задаёт радиус этой дуги с
       <em>каждой</em> стороны от ползунка — а диапазонный слайдер ниже подсвечивает деления рядом с
       <em>любым</em> из двух ползунков независимо, отмечая полосу пропускания фильтра.</p>
-    <input class="ranger-input" type="range" id="eq-gain" min="0" max="100" step="1" value="50"/>
-    <input class="ranger-input" type="range" id="eq-band" min="0" max="100" step="1" value="20" data-max-value="80"/>
+    <input type="range" id="eq-gain" min="0" max="100" step="1" value="50"/>
+    <input type="range" id="eq-band" min="0" max="100" step="1" value="20" data-points="80"/>
   </section>
 
   <section>
@@ -79,8 +79,8 @@
       значения в читаемом виде. <code>minValue</code>/<code>maxValue</code> при этом ограничивают
       выбор датами с 5 по 23 июня, когда номер свободен, — шкала по-прежнему показывает весь месяц, но
       перетащить ручку за эти границы нельзя, она просто останавливается на них.</p>
-    <input class="ranger-input" type="range" id="clothing-size" value="2"/>
-    <input class="ranger-input" type="range" id="booking-dates" value="8" data-max-value="18"/>
+    <input type="range" id="clothing-size" value="2"/>
+    <input type="range" id="booking-dates" value="8" data-points="18"/>
   </section>
 
   <section>
@@ -89,17 +89,18 @@
       (и аналогичные параметры для делений шкалы) везде, где отображается значение — здесь она
       подбирает единицу измерения сама, показывая гигабайты до 1000 и переходя на терабайты после,
       как в выборе тарифа облачного хранилища.</p>
-    <input class="ranger-input" type="range" id="storage" min="0" max="5000" step="50" value="1250"/>
+    <input type="range" id="storage" min="0" max="5000" step="50" value="1250"/>
   </section>
 
   <section>
     <h2>8. Логарифмическая шкала: цена товара</h2>
     <p><code>logScale</code> оставляет перемещение ползунка линейным, но отображает значение по
       экспоненциальной шкале между <code>min</code> и <code>max</code> — то, что нужно фильтру цены
-      в каталоге, где товары стоят и от $10, и до $100&nbsp;000: больше точности в частом нижнем
+      в каталоге, где товары стоят и от 10 центов, и до $10&nbsp;000: больше точности в частом нижнем
       сегменте цен, а не только у дорогих редких позиций. Обратите внимание, как значения делений
-      сгущаются слева.</p>
-    <input class="ranger-input" type="range" id="price" min="10" max="100000" step="1" value="10"/>
+      сгущаются слева. Начальный <code>value="10"</code> ниже — это цена в $10, а не позиция ползунка:
+      Ranger сам вычисляет нужную позицию при инициализации.</p>
+    <input type="range" id="price" min="0.1" max="10000" step="1" value="10"/>
   </section>
 
   <section>
@@ -110,8 +111,8 @@
       границы цикла по-прежнему можно тянуть и по отдельности, меняя его длину. Второй слайдер —
       часовой слот записи на приём с <code>fixedRange</code>: за какую бы ручку его ни тянуть, длина
       не меняется — его можно только передвинуть на другое время.</p>
-    <input class="ranger-input" type="range" id="loop-range" min="0" max="180" step="1" value="30" data-max-value="90"/>
-    <input class="ranger-input" type="range" id="appointment" min="480" max="1080" step="15" value="540" data-max-value="600"/>
+    <input type="range" id="loop-range" min="0" max="180" step="1" value="30" data-points="90"/>
+    <input type="range" id="appointment" min="480" max="1080" step="15" value="540" data-points="600"/>
   </section>
 
   <section>
@@ -121,7 +122,7 @@
       графическом редакторе или на карте. Двойной клик по ползунку сбрасывает масштаб к 100%.
       <code>labelOnDragOnly</code> при этом скрывает всплывающую подпись, пока ползунок не начинают
       двигать — зажмите или перетащите его, чтобы увидеть текущий процент.</p>
-    <input class="ranger-input" type="range" id="zoom" min="50" max="200" step="10" value="100"/>
+    <input type="range" id="zoom" min="50" max="200" step="10" value="100"/>
   </section>
 
   <section>
@@ -131,8 +132,8 @@
       градиент растягивается на выбранный поддиапазон, а не на постоянную позицию по всей дорожке.
       Второй слайдер использует тот же приём для пяти чётких зон — как индикатор сложности пароля
       (слабый / так себе / хороший / сильный / очень сильный).</p>
-    <input class="ranger-input" type="range" id="risk" min="0" max="100" step="1" value="40"/>
-    <input class="ranger-input" type="range" id="password-strength" min="0" max="100" step="1" value="40"/>
+    <input type="range" id="risk" min="0" max="100" step="1" value="40"/>
+    <input type="range" id="password-strength" min="0" max="100" step="1" value="40"/>
   </section>
 
   <section>
@@ -142,7 +143,7 @@
       <code>className</code>) и «комфортная зона» 200–500 через <code>{ from, to }</code>. <code>format</code>
       при этом возвращает HTML — всплывающая подпись рендерит его как разметку, а не показывает как
       экранированный текст.</p>
-    <input class="ranger-input" type="range" id="grocery-budget" min="0" max="1000" step="10" value="450"/>
+    <input type="range" id="grocery-budget" min="0" max="1000" step="10" value="450"/>
   </section>
 
   <section>
@@ -152,8 +153,8 @@
       <code>update(options)</code> меняет опции уже смонтированного слайдера: «Скрыть фильтры»
       переключает <code>disabled</code>, «Увеличить лимит» удваивает <code>max</code> у обоих
       слайдеров ниже и перестраивает их шкалу.</p>
-    <input class="ranger-input" type="range" id="preset-volume" min="0" max="100" step="1" value="50"/>
-    <input class="ranger-input" type="range" id="preset-price" min="0" max="100" step="1" value="20" data-max-value="60"/>
+    <input type="range" id="preset-volume" min="0" max="100" step="1" value="50"/>
+    <input type="range" id="preset-price" min="0" max="100" step="1" value="20" data-points="60"/>
     <div class="form_control">
       <button type="button" id="api-set-value">Комфортный уровень</button>
       <button type="button" id="api-set-range">Средний сегмент</button>
@@ -170,7 +171,7 @@
       перетаскивание (в т.ч. клик по дорожке и перетаскивание всего диапазона) отражаются
       автоматически, без какой-либо отдельной настройки, — как регулятор громкости в интерфейсе,
       локализованном на арабский или иврит.</p>
-    <input class="ranger-input" type="range" id="rtl-volume" min="0" max="100" step="1" value="50"/>
+    <input type="range" id="rtl-volume" min="0" max="100" step="1" value="50"/>
     <pre id="callbacks-log" style="max-height: 160px; overflow-y: auto;"></pre>
   </section>
 
@@ -223,7 +224,7 @@
     new Ranger('#eq-gain', {
       scaleTicksCount: 10,
       scaleMinorTicksCount: 9,
-      scaleAnimatedTicksCount: 5,
+      scaleAnimatedTicksCount: 3,
       labelSuffix: '%',
       scaleTickSuffix: '%',
       classes: {
@@ -276,9 +277,10 @@
       scaleTicksCount: 6,
       // A custom `format` replaces logScale's default position→price mapping, so it redoes that mapping itself before adding currency formatting.
       format: function (position) {
-        var min = 10, max = 100000;
-        var price = Math.round(min * Math.pow(max / min, (position - min) / (max - min)));
-        return '$' + price.toLocaleString();
+        var min = 0.1, max = 10000;
+        var price = min * Math.pow(max / min, (position - min) / (max - min));
+        // Cents matter down near the $0.10 floor, but not once the price rounds to whole dollars.
+        return price < 10 ? '$' + price.toFixed(2) : '$' + Math.round(price).toLocaleString();
       },
     });
 
