@@ -90,6 +90,52 @@ describe('createScale', () => {
   });
 });
 
+describe('createScale / minValue & maxValue limit ticks', () => {
+  it('flags the ticks at minValue/maxValue as isLimit and adds the limit class', () => {
+    const input = makeInput({ min: 0, max: 100, value: 50 });
+    const ranger = new Ranger(input, { scaleTicksCount: 10, minValue: 30, maxValue: 70 });
+
+    const atMin = ranger.scaleTicks.find((t) => t.value === 30);
+    const atMax = ranger.scaleTicks.find((t) => t.value === 70);
+    const elsewhere = ranger.scaleTicks.find((t) => t.value === 50);
+
+    expect(atMin.isLimit).toBe(true);
+    expect(atMin.tick.classList.contains('ranger-scale-tick--limit')).toBe(true);
+    expect(atMax.isLimit).toBe(true);
+    expect(atMax.tick.classList.contains('ranger-scale-tick--limit')).toBe(true);
+    expect(elsewhere.isLimit).toBe(false);
+    expect(elsewhere.tick.classList.contains('ranger-scale-tick--limit')).toBe(false);
+  });
+
+  it('does not flag any tick when minValue/maxValue are left at the default null', () => {
+    const input = makeInput({ min: 0, max: 100, value: 50 });
+    const ranger = new Ranger(input, { scaleTicksCount: 10 });
+
+    expect(ranger.scaleTicks.every((t) => !t.isLimit)).toBe(true);
+  });
+
+  it('keeps a limit tick visible even when arrangeScale would otherwise skip it', () => {
+    const input = makeInput({ min: 0, max: 100, value: 50 });
+    const ranger = new Ranger(input, { scaleTicksCount: 10, minValue: 30, maxValue: 70 });
+
+    // jsdom never performs real layout, so stub each major tick's position (evenly spaced across 110px) and a label width that forces arrangeScale to skip some.
+    const majors = ranger.scaleTicks.filter((t) => t.isMajor);
+    majors.forEach(({ tick, label }, i) => {
+      tick.getBoundingClientRect = () => ({ left: i * 11 });
+      Object.defineProperty(label, 'offsetWidth', { value: 30, configurable: true });
+    });
+
+    ranger.arrangeScale();
+
+    // trackWidth 110, maxLabelWidth 30 => skip 5, so only 0/5/10 (values 0/50/100) would normally show — 30/70 are forced visible as minValue/maxValue.
+    const visible = majors
+      .filter(({ tick }) => tick.style.visibility === 'visible')
+      .map((t) => t.value)
+      .sort((a, b) => a - b);
+    expect(visible).toEqual([0, 30, 50, 70, 100]);
+  });
+});
+
 describe('updateScale (--ranger-scale arc: 1 (tallest) at the handle, eases non-linearly down to 0 across the radius)', () => {
   it('is 1 (its tallest) exactly at the handle', () => {
     const input = makeInput({ min: 0, max: 100, value: 50 });
@@ -100,12 +146,7 @@ describe('updateScale (--ranger-scale arc: 1 (tallest) at the handle, eases non-
   });
 
   it('is 0.25 at the midpoint of the scaleAnimatedTicksCount radius (a sharpened, not a plain, raised cosine)', () => {
-    // tickSpacing = 10, scaleAnimatedTicksCount = 1 => maxDistance = 10;
-    // a handle at 55 puts the tick at 50 exactly at distance 5 (half of 10).
-    // A plain raised cosine (or a linear ramp) would read 0.5 there — the
-    // sharpened arc pulls the shoulders in toward the handle, so the
-    // midpoint reads lower (0.5 squared) and the peak looks taller/narrower
-    // against its surroundings.
+    // A handle at 55 puts the tick at 50 at half the radius; a plain raised cosine would read 0.5, but the sharpened arc squares it to 0.25.
     const input = makeInput({ min: 0, max: 100, value: 55 });
     const ranger = new Ranger(input, { scaleTicksCount: 10, scaleAnimatedTicksCount: 1 });
 
@@ -124,9 +165,7 @@ describe('updateScale (--ranger-scale arc: 1 (tallest) at the handle, eases non-
   });
 
   it('is a single hump peaking at the handle — not a dip at the handle flanked by two peaks', () => {
-    // Regression guard for a shape that briefly shipped: 0 right at the
-    // handle with a peak on either side of it (two humps, a dip in the
-    // middle) instead of one hump peaking at the handle itself.
+    // Regression guard for a shape that briefly shipped: two peaks flanking a dip at the handle, instead of one hump peaking at it.
     const input = makeInput({ min: 0, max: 100, value: 50 });
     const ranger = new Ranger(input, { scaleTicksCount: 10, scaleMinorTicksCount: 9, scaleAnimatedTicksCount: 5 });
 

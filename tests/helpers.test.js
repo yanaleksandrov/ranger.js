@@ -115,8 +115,7 @@ describe('Ranger.NAVIGATION_KEYS', () => {
 });
 
 describe('Ranger#formatDisplayValue', () => {
-  // An instance method (reads this.format/labelPrefix/labelSuffix) — called
-  // via .call() on a minimal fake instance instead of a fully mounted Ranger.
+  // An instance method, called via .call() on a minimal fake instance instead of a fully mounted Ranger.
   const format = (fakeInstance, value) => Ranger.prototype.formatDisplayValue.call(fakeInstance, value);
 
   it('uses labelPrefix/labelSuffix when no format function is set', () => {

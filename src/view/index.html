@@ -5,256 +5,293 @@
 
   <h1>Демо Ranger.js</h1>
 
-  <button id="skin-switcher" type="button" class="skin-switcher">🎨 Скин: Coral</button>
+  <select id="skin-switcher" class="skin-switcher">
+    <option value="">🎨 Скин: обычный</option>
+    <option value="coral">🎨 Скин: Coral</option>
+  </select>
 
   <section>
-    <h2>1. Обычный, минимальный и отключённый</h2>
-    <p>Три базовых состояния: слайдер по умолчанию; слайдер без шкалы и всплывающей подписи
-      (<code>scaleTicksCount: 0</code>, <code>labelIsVisible: false</code>); диапазонный слайдер,
-      отключённый через <code>disabled</code>.</p>
-    <input class="ranger-input" type="range" id="single" min="0" max="100" step="1" value="40"/>
-    <input class="ranger-input" type="range" id="minimal" min="0" max="10" step="1" value="4"/>
-    <input class="ranger-input" type="range" id="disabled-range" min="0" max="100" step="1" value="30" data-max-value="70"/>
+    <h2>1. Громкость, яркость и недоступный фильтр</h2>
+    <p>Три базовых состояния: обычный ползунок громкости плеера; компактный ползунок яркости экрана
+      без шкалы и всплывающей подписи (<code>scaleTicksCount: 0</code>, <code>labelIsVisible: false</code>)
+      — для панели быстрых настроек; диапазонный фильтр цены, отключённый через <code>disabled</code>,
+      потому что по текущим условиям поиска нет подходящих товаров.</p>
+    <input class="ranger-input" type="range" id="volume" min="0" max="100" step="1" value="40"/>
+    <input class="ranger-input" type="range" id="brightness" min="0" max="10" step="1" value="4"/>
+    <input class="ranger-input" type="range" id="price-disabled" min="0" max="1000" step="10" value="200" data-max-value="800"/>
   </section>
 
   <section>
-    <h2>2. Отрицательные и дробные значения</h2>
-    <p>Произвольный <code>step</code>, отрицательный <code>min</code>, префиксы и суффиксы у меток и делений.</p>
-    <input class="ranger-input" type="range" id="temperature" min="-1" max="1" step="0.01" value="-0.2"/>
+    <h2>2. Отрицательные и дробные значения: компенсация экспозиции</h2>
+    <p>Произвольный <code>step</code>, отрицательный <code>min</code>, суффикс у меток и делений —
+      как регулятор компенсации экспозиции в камере или фоторедакторе, где нужен шаг в десятые доли
+      ступени в обе стороны от нуля.</p>
+    <input class="ranger-input" type="range" id="exposure" min="-2" max="2" step="0.1" value="-0.3"/>
   </section>
 
   <section>
-    <h2>3. Диапазон, синхронизированный с полями, с минимальным отступом</h2>
-    <p>Два ползунка через <code>data-max-value</code>, значения дублируются в числовые поля ниже, а
-      <code>minGap</code> не даёт ползункам сблизиться меньше чем на 1000.</p>
+    <h2>3. Диапазон зарплат, синхронизированный с полями</h2>
+    <p>Два ползунка через <code>data-max-value</code> задают вилку зарплаты в вакансии, значения
+      дублируются в числовые поля ниже, а <code>minGap</code> не даёт вилке схлопнуться меньше чем на
+      $1000.</p>
     <div class="form_control">
       <span class="form_control_container">
-        <label class="form_control_container__time">Мин</label>
-        <input class="form_control_container__time__input" type="number" id="fromInput" min="0" max="50000" value="2000"/>
+        <label class="form_control_container__time">От</label>
+        <input class="form_control_container__time__input" type="number" id="salaryFrom" min="0" max="50000" value="2000"/>
       </span>
       <span class="form_control_container">
-        <label class="form_control_container__time">Макс</label>
-        <input class="form_control_container__time__input" type="number" id="toInput" min="0" max="50000" value="35000"/>
+        <label class="form_control_container__time">До</label>
+        <input class="form_control_container__time__input" type="number" id="salaryTo" min="0" max="50000" value="35000"/>
       </span>
     </div>
-    <input class="ranger-input" type="range" id="ages" min="0" max="50000" step="1" value="2000" data-max-value="35000"/>
+    <input class="ranger-input" type="range" id="salary-range" min="0" max="50000" step="1" value="2000" data-max-value="35000"/>
   </section>
 
   <section>
-    <h2>4. Близко расположенные ползунки и точки привязки</h2>
-    <p>Проверка объединения меток при столкновении (ползунки стартуют на расстоянии 4 в диапазоне
-      0–100), а <code>snapPoints</code> магнитом притягивает любой из них к 25, 50 или 75, как только
-      он оказывается в пределах <code>snapThreshold</code> от одной из этих точек.</p>
-    <input class="ranger-input" type="range" id="close-range" min="0" max="100" step="1" value="48" data-max-value="52"/>
+    <h2>4. Слипшиеся ползунки и точки привязки: диапазон скидки</h2>
+    <p>Проверка объединения меток при столкновении (ползунки стартуют на расстоянии 4% в диапазоне
+      0–100%), а <code>snapPoints</code> магнитом притягивает любой из них к стандартным уровням
+      скидки 25%, 50% или 75%, как только он оказывается в пределах <code>snapThreshold</code> от
+      одного из них.</p>
+    <input class="ranger-input" type="range" id="discount-range" min="0" max="100" step="1" value="48" data-max-value="52"/>
   </section>
 
   <section>
-    <h2>5. Анимированные деления шкалы, с промежуточными делениями</h2>
+    <h2>5. Эквалайзер: анимированные деления шкалы</h2>
     <p>Каждое деление — основное или промежуточное — содержит живое CSS-свойство <code>--ranger-scale</code>
       (0–1) — дугу с пиком 1 прямо у ползунка и плавным (не линейным) спадом к 0 на дальнем краю
-      радиуса, — поэтому анимировать его можно обычным CSS.
-      <code>scaleMinorTicksCount</code> добавляет промежуточные деления без подписи между каждой парой
-      основных, а <code>scaleAnimatedTicksCount</code> задаёт радиус этой дуги с <em>каждой</em>
-      стороны от ползунка — и на диапазонном слайдере (второй ниже) деления подсвечиваются рядом с
-      <em>любым</em> из двух ползунков независимо.</p>
-    <input class="ranger-input" type="range" id="equalizer" min="0" max="100" step="1" value="50"/>
-    <input class="ranger-input" type="range" id="eq-range" min="0" max="100" step="1" value="20" data-max-value="80"/>
+      радиуса, — поэтому анимировать его можно обычным CSS, как подсветку полосы графического
+      эквалайзера. <code>scaleMinorTicksCount</code> добавляет промежуточные деления без подписи между
+      каждой парой основных, а <code>scaleAnimatedTicksCount</code> задаёт радиус этой дуги с
+      <em>каждой</em> стороны от ползунка — а диапазонный слайдер ниже подсвечивает деления рядом с
+      <em>любым</em> из двух ползунков независимо, отмечая полосу пропускания фильтра.</p>
+    <input class="ranger-input" type="range" id="eq-gain" min="0" max="100" step="1" value="50"/>
+    <input class="ranger-input" type="range" id="eq-band" min="0" max="100" step="1" value="20" data-max-value="80"/>
   </section>
 
   <section>
-    <h2>6. Адаптивные подписи делений</h2>
-    <p>20 основных делений в узком контейнере (240px) — подписи, которые иначе накладывались бы друг на
-      друга, скрываются автоматически; проверка выполняется заново при каждом изменении фактической ширины
-      слайдера (через <code>ResizeObserver</code>), а не только один раз при загрузке страницы.</p>
-    <div style="max-width: 240px;">
-      <input class="ranger-input" type="range" id="responsive" min="0" max="100" step="1" value="50"/>
-    </div>
-  </section>
-
-  <section>
-    <h2>7. Дискретные значения: размеры и диапазон дат</h2>
+    <h2>6. Дискретные значения: размер одежды и даты бронирования</h2>
     <p><code>values</code> превращает слайдер в выбор индекса по массиву собственных отображаемых
-      значений — <code>min</code>/<code>max</code>/<code>step</code> вычисляются автоматически.
-      Массив может содержать что угодно, вплоть до объектов <code>Date</code>: второй слайдер ниже —
-      диапазонный выбор дат, где сам массив (все дни с 1 по 30 июня 2026) задаёт нижнюю и верхнюю
-      границу доступных дат, а <code>format</code> отображает их в читаемом виде.</p>
-    <input class="ranger-input" type="range" id="sizes" value="2"/>
-    <input class="ranger-input" type="range" id="date-range" value="5" data-max-value="23"/>
+      значений — <code>min</code>/<code>max</code>/<code>step</code> вычисляются автоматически, как в
+      выборе размера одежды на карточке товара. Массив может содержать что угодно, вплоть до объектов
+      <code>Date</code>: второй слайдер ниже — диапазонный выбор дат для бронирования номера, где сам
+      массив (все дни с 1 по 30 июня 2026) задаёт шкалу целиком, а <code>format</code> отображает
+      значения в читаемом виде. <code>minValue</code>/<code>maxValue</code> при этом ограничивают
+      выбор датами с 5 по 23 июня, когда номер свободен, — шкала по-прежнему показывает весь месяц, но
+      перетащить ручку за эти границы нельзя, она просто останавливается на них.</p>
+    <input class="ranger-input" type="range" id="clothing-size" value="2"/>
+    <input class="ranger-input" type="range" id="booking-dates" value="8" data-max-value="18"/>
   </section>
 
   <section>
-    <h2>8. Пользовательское форматирование</h2>
+    <h2>7. Пользовательское форматирование: тариф облачного хранилища</h2>
     <p>Функция <code>format(value)</code> полностью заменяет <code>labelPrefix</code>/<code>labelSuffix</code>
-      (и аналогичные параметры для делений шкалы) везде, где отображается значение — здесь это строка
-      валюты с учётом локали.</p>
-    <input class="ranger-input" type="range" id="price" min="0" max="5000" step="50" value="1250"/>
+      (и аналогичные параметры для делений шкалы) везде, где отображается значение — здесь она
+      подбирает единицу измерения сама, показывая гигабайты до 1000 и переходя на терабайты после,
+      как в выборе тарифа облачного хранилища.</p>
+    <input class="ranger-input" type="range" id="storage" min="0" max="5000" step="50" value="1250"/>
   </section>
 
   <section>
-    <h2>9. Логарифмическая шкала</h2>
+    <h2>8. Логарифмическая шкала: цена товара</h2>
     <p><code>logScale</code> оставляет перемещение ползунка линейным, но отображает значение по
-      экспоненциальной шкале между <code>min</code> и <code>max</code> — больше точности в нижней части
-      диапазона, как в регуляторе частоты звука. Обратите внимание, как значения делений сгущаются слева.</p>
-    <input class="ranger-input" type="range" id="frequency" min="20" max="20000" step="1" value="20"/>
+      экспоненциальной шкале между <code>min</code> и <code>max</code> — то, что нужно фильтру цены
+      в каталоге, где товары стоят и от $10, и до $100&nbsp;000: больше точности в частом нижнем
+      сегменте цен, а не только у дорогих редких позиций. Обратите внимание, как значения делений
+      сгущаются слева.</p>
+    <input class="ranger-input" type="range" id="price" min="10" max="100000" step="1" value="10"/>
   </section>
 
   <section>
-    <h2>10. Перетаскивание диапазона: обычное и с фиксированной длиной</h2>
+    <h2>9. Перетаскивание диапазона: цикл воспроизведения и запись на приём</h2>
     <p>Схватите саму закрашенную полосу (не ползунок) и потяните — оба ползунка двигаются вместе,
-      сохраняя расстояние между собой, как перемещение окна диапазона дат. Работает автоматически на
-      любом диапазонном слайдере, включая первый ниже, где ползунки по-прежнему можно тянуть и по
-      отдельности, меняя ширину диапазона. Второй слайдер — часовой слот записи на приём с
-      <code>fixedRange</code>: за какую бы ручку его ни тянуть, длина не меняется — его можно только
-      передвинуть на другое время.</p>
-    <input class="ranger-input" type="range" id="whole-range" min="0" max="100" step="1" value="30" data-max-value="60"/>
+      сохраняя длину, как перемещение окна цикла воспроизведения по треку без изменения его
+      длительности. Работает автоматически на любом диапазонном слайдере, включая первый ниже, где
+      границы цикла по-прежнему можно тянуть и по отдельности, меняя его длину. Второй слайдер —
+      часовой слот записи на приём с <code>fixedRange</code>: за какую бы ручку его ни тянуть, длина
+      не меняется — его можно только передвинуть на другое время.</p>
+    <input class="ranger-input" type="range" id="loop-range" min="0" max="180" step="1" value="30" data-max-value="90"/>
     <input class="ranger-input" type="range" id="appointment" min="480" max="1080" step="15" value="540" data-max-value="600"/>
   </section>
 
   <section>
-    <h2>11. Точный шаг, сброс и метка только при перетаскивании</h2>
-    <p>Наведите фокус на ползунок: стрелки перемещают его на 10 (обычный <code>step</code>),
-      <strong>Shift</strong> + стрелка — на 1 (<code>fineStep</code>). Двойной клик по ползунку сбрасывает
-      его к начальному значению. <code>labelOnDragOnly</code> при этом скрывает всплывающую метку, пока
-      ползунок не начинают двигать — зажмите или перетащите его, чтобы увидеть значение.</p>
-    <input class="ranger-input" type="range" id="fine-step" min="0" max="100" step="10" value="50"/>
+    <h2>10. Точный шаг, сброс и метка только при перетаскивании: масштаб</h2>
+    <p>Наведите фокус на ползунок: стрелки меняют масштаб на 10% (обычный <code>step</code>),
+      <strong>Shift</strong> + стрелка — на 1% (<code>fineStep</code>), как точная подстройка зума в
+      графическом редакторе или на карте. Двойной клик по ползунку сбрасывает масштаб к 100%.
+      <code>labelOnDragOnly</code> при этом скрывает всплывающую подпись, пока ползунок не начинают
+      двигать — зажмите или перетащите его, чтобы увидеть текущий процент.</p>
+    <input class="ranger-input" type="range" id="zoom" min="50" max="200" step="10" value="100"/>
   </section>
 
   <section>
-    <h2>12. Градиент заливки: цветовые зоны</h2>
+    <h2>11. Градиент заливки: риск портфеля и сложность пароля</h2>
     <p><code>fillGradient</code> заменяет один сплошной <code>accent-color</code> CSS-градиентом —
-      здесь зелёный→жёлтый→красный на шкале риска. В диапазонном режиме градиент растягивается на
-      выбранный поддиапазон, а не на постоянную позицию по всей дорожке.</p>
+      здесь зелёный→жёлтый→красный на шкале риска инвестиционного портфеля. В диапазонном режиме
+      градиент растягивается на выбранный поддиапазон, а не на постоянную позицию по всей дорожке.
+      Второй слайдер использует тот же приём для пяти чётких зон — как индикатор сложности пароля
+      (слабый / так себе / хороший / сильный / очень сильный).</p>
     <input class="ranger-input" type="range" id="risk" min="0" max="100" step="1" value="40"/>
+    <input class="ranger-input" type="range" id="password-strength" min="0" max="100" step="1" value="40"/>
   </section>
 
   <section>
-    <h2>14. Метки, зоны и HTML-подпись</h2>
+    <h2>12. Метки, зоны и HTML-подпись: недельный бюджет на продукты</h2>
     <p><code>marks</code> добавляет фиксированные точки и зоны на дорожку независимо от шкалы делений —
-      здесь отмечены типичный бюджет (300), рекомендованный (700, выделен своим <code>className</code>)
-      и «комфортная зона» 200–500 через <code>{ from, to }</code>. <code>format</code> при этом
-      возвращает HTML — всплывающая подпись рендерит его как разметку, а не показывает как
+      здесь отмечены типичный бюджет на продукты (300), рекомендованный (700, выделен своим
+      <code>className</code>) и «комфортная зона» 200–500 через <code>{ from, to }</code>. <code>format</code>
+      при этом возвращает HTML — всплывающая подпись рендерит его как разметку, а не показывает как
       экранированный текст.</p>
-    <input class="ranger-input" type="range" id="budget" min="0" max="1000" step="10" value="450"/>
+    <input class="ranger-input" type="range" id="grocery-budget" min="0" max="1000" step="10" value="450"/>
   </section>
 
   <section>
-    <h2>15. Программное управление: setValue, setRange, update()</h2>
+    <h2>13. Программное управление: пресеты фильтров</h2>
     <p><code>setValue</code>/<code>setRange</code> двигают ручки в обход перетаскивания — через тот же
-      конвейер, что и обычное взаимодействие. <code>update(options)</code> меняет опции уже
-      смонтированного слайдера: «Отключить» переключает <code>disabled</code>, «×2 максимум» удваивает
-      <code>max</code> обоих слайдеров ниже и перестраивает их шкалу.</p>
-    <input class="ranger-input" type="range" id="api-single" min="0" max="100" step="1" value="50"/>
-    <input class="ranger-input" type="range" id="api-range" min="0" max="100" step="1" value="20" data-max-value="60"/>
+      конвейер, что и обычное взаимодействие, как клик по готовому пресету в интерфейсе.
+      <code>update(options)</code> меняет опции уже смонтированного слайдера: «Скрыть фильтры»
+      переключает <code>disabled</code>, «Увеличить лимит» удваивает <code>max</code> у обоих
+      слайдеров ниже и перестраивает их шкалу.</p>
+    <input class="ranger-input" type="range" id="preset-volume" min="0" max="100" step="1" value="50"/>
+    <input class="ranger-input" type="range" id="preset-price" min="0" max="100" step="1" value="20" data-max-value="60"/>
     <div class="form_control">
-      <button type="button" id="api-set-value">setValue(80)</button>
-      <button type="button" id="api-set-range">setRange(30, 70)</button>
-      <button type="button" id="api-toggle-disabled">update: disabled</button>
-      <button type="button" id="api-double-max">update: max ×2</button>
+      <button type="button" id="api-set-value">Комфортный уровень</button>
+      <button type="button" id="api-set-range">Средний сегмент</button>
+      <button type="button" id="api-toggle-disabled">Скрыть фильтры</button>
+      <button type="button" id="api-double-max">Увеличить лимит</button>
     </div>
   </section>
 
   <section dir="rtl">
-    <h2>16. Callback-и и поддержка RTL</h2>
+    <h2>14. Callback-и и поддержка RTL: громкость в арабском интерфейсе</h2>
     <p>Потяните или сфокусируйте ползунок клавиатурой — каждое событие (<code>onStart</code>,
       <code>onChange</code>, <code>onEnd</code>, <code>onFocus</code>, <code>onBlur</code>) логируется
       ниже. Контейнер также имеет <code>dir="rtl"</code> — шкала, заливка, всплывающая подпись и
       перетаскивание (в т.ч. клик по дорожке и перетаскивание всего диапазона) отражаются
-      автоматически, без какой-либо отдельной настройки.</p>
-    <input class="ranger-input" type="range" id="callbacks" min="0" max="100" step="1" value="50"/>
+      автоматически, без какой-либо отдельной настройки, — как регулятор громкости в интерфейсе,
+      локализованном на арабский или иврит.</p>
+    <input class="ranger-input" type="range" id="rtl-volume" min="0" max="100" step="1" value="50"/>
     <pre id="callbacks-log" style="max-height: 160px; overflow-y: auto;"></pre>
   </section>
 
   <script>
   document.addEventListener('DOMContentLoaded', function() {
     var skinSwitcher = document.getElementById('skin-switcher');
-    skinSwitcher.addEventListener('click', function () {
-      var isCoral = document.documentElement.dataset.skin === 'coral';
 
-      document.documentElement.dataset.skin = isCoral ? '' : 'coral';
-      skinSwitcher.textContent = isCoral ? '🎨 Скин: Coral' : '🎨 Скин: обычный';
+    skinSwitcher.addEventListener('change', function () {
+      var skin = skinSwitcher.value;
+      document.documentElement.dataset.skin = skin;
 
-      // The skin itself re-paints live via CSS custom properties, but the
-      // fill's own color is read once per value change (see fillSlider in
-      // index.js) — refresh every mounted slider so it picks up the change
-      // immediately instead of waiting for the next drag.
+      // The fill's own color is read once per value change (see fillSlider in index.js), so refresh every mounted slider to pick up the change immediately.
       Ranger.instances.forEach(function (instance) {
         instance.fillSlider();
       });
     });
 
-    new Ranger('#single');
+    new Ranger('#volume', { labelSuffix: '%' });
 
-    new Ranger('#minimal', {
+    new Ranger('#brightness', {
       scaleTicksCount: 0,
       labelIsVisible: false,
     });
 
-    new Ranger('#disabled-range', { disabled: true });
-
-    new Ranger('#temperature', {
-      scaleTickSuffix: '°',
-      labelSuffix: '°',
+    new Ranger('#price-disabled', {
+      disabled: true,
+      labelPrefix: '$',
     });
 
-    new Ranger('#ages', {
-      fromInput: document.getElementById('fromInput'),
-      toInput: document.getElementById('toInput'),
+    new Ranger('#exposure', {
+      scaleTicksCount: 8,
+      scaleTickSuffix: ' EV',
+      labelSuffix: ' EV',
+    });
+
+    new Ranger('#salary-range', {
+      fromInput: document.getElementById('salaryFrom'),
+      toInput: document.getElementById('salaryTo'),
       scaleTicksCount: 5,
       minGap: 1000,
+      format: function (value) { return '$' + value.toLocaleString(); },
     });
 
-    new Ranger('#close-range', { snapPoints: [25, 50, 75] });
+    new Ranger('#discount-range', {
+      snapPoints: [25, 50, 75],
+      labelSuffix: '%',
+      scaleTickSuffix: '%',
+    });
 
-    new Ranger('#equalizer', {
+    new Ranger('#eq-gain', {
       scaleTicksCount: 10,
       scaleMinorTicksCount: 9,
       scaleAnimatedTicksCount: 5,
+      labelSuffix: '%',
+      scaleTickSuffix: '%',
       classes: {
         scaleTick: 'ranger-scale-tick ranger-scale-tick--animated',
         scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor ranger-scale-tick--animated',
       },
     });
 
-    new Ranger('#eq-range', {
+    new Ranger('#eq-band', {
       scaleTicksCount: 10,
       scaleMinorTicksCount: 4,
       scaleAnimatedTicksCount: 2,
+      labelSuffix: '%',
+      scaleTickSuffix: '%',
       classes: {
         scaleTick: 'ranger-scale-tick ranger-scale-tick--animated',
         scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor ranger-scale-tick--animated',
       },
     });
 
-    new Ranger('#responsive', { scaleTicksCount: 20 });
+    new Ranger('#clothing-size', { values: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] });
 
-    new Ranger('#sizes', { values: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] });
-
-    // 1–30 June 2026 (June has 30 days) — the array's own bounds are the
-    // slider's date limits.
+    // 1–30 June 2026 — the array's own bounds are the slider's date limits.
     var dateValues = Array.from({ length: 30 }, function (_, i) {
       var date = new Date(2026, 5, 1);
       date.setDate(date.getDate() + i);
       return date;
     });
 
-    new Ranger('#date-range', {
+    new Ranger('#booking-dates', {
       values: dateValues,
-      // A custom `format` always receives the raw slider value (here, the
-      // index into `values`), never the mapped entry — so look the date up
-      // ourselves, the same way Ranger's own default `values` formatter does.
+      // minValue/maxValue clamp which indices are selectable (4 = June 5, 22 = June 23) without touching the scale's own min/max.
+      minValue: 4,
+      maxValue: 22,
+      // A custom `format` receives the raw index, never the mapped entry, so look the date up ourselves.
       format: function (index) {
         return dateValues[Math.round(index)].toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
       },
     });
 
-    new Ranger('#price', {
+    new Ranger('#storage', {
       scaleTicksCount: 5,
-      format: function (value) { return '$' + value.toLocaleString(); },
+      format: function (value) {
+        return value >= 1000 ? (value / 1000).toFixed(2) + ' ТБ' : value + ' ГБ';
+      },
     });
 
-    new Ranger('#frequency', { logScale: true, scaleTicksCount: 8 });
+    new Ranger('#price', {
+      logScale: true,
+      scaleTicksCount: 6,
+      // A custom `format` replaces logScale's default position→price mapping, so it redoes that mapping itself before adding currency formatting.
+      format: function (position) {
+        var min = 10, max = 100000;
+        var price = Math.round(min * Math.pow(max / min, (position - min) / (max - min)));
+        return '$' + price.toLocaleString();
+      },
+    });
 
-    new Ranger('#whole-range');
+    var formatDuration = function (seconds) {
+      var m = Math.floor(seconds / 60);
+      var s = Math.round(seconds % 60);
+      return m + ':' + (s < 10 ? '0' : '') + s;
+    };
+
+    new Ranger('#loop-range', {
+      scaleTicksCount: 6,
+      format: formatDuration,
+    });
 
     new Ranger('#appointment', {
       fixedRange: true,
@@ -266,14 +303,22 @@
       },
     });
 
-    new Ranger('#fine-step', {
+    new Ranger('#zoom', {
       fineStep: 1,
       labelOnDragOnly: true,
+      labelSuffix: '%',
+      scaleTickSuffix: '%',
     });
 
-    new Ranger('#risk', { fillGradient: 'linear-gradient(to right, #22c55e, #eab308, #ef4444)' });
+    new Ranger('#risk', {
+      fillGradient: 'linear-gradient(to right, #22c55e, #eab308, #ef4444)'
+    });
 
-    new Ranger('#budget', {
+    new Ranger('#password-strength', {
+      fillGradient: 'linear-gradient(to right, #00a651 0 calc(20% - 1px), var(--ranger-bg) calc(20% - 1px) 20%, #7cb342 20% calc(40% - 1px), var(--ranger-bg) calc(40% - 1px) 40%, #fdd835 40% calc(60% - 1px), var(--ranger-bg) calc(60% - 1px) 60%, #fb8c00 60% calc(80% - 1px), var(--ranger-bg) calc(80% - 1px) 80%, #e53935 80% 100%)'
+    });
+
+    new Ranger('#grocery-budget', {
       scaleTicksCount: 5,
       marks: [
         { value: 700, label: 'Рекомендовано', className: 'ranger-mark--highlight' },
@@ -284,8 +329,8 @@
       },
     });
 
-    var apiSingle = new Ranger('#api-single');
-    var apiRange = new Ranger('#api-range');
+    var apiSingle = new Ranger('#preset-volume', { labelSuffix: '%' });
+    var apiRange = new Ranger('#preset-price', { labelPrefix: '$' });
 
     document.getElementById('api-set-value').addEventListener('click', function () {
       apiSingle.setValue(80);
@@ -310,8 +355,9 @@
       };
     };
 
-    new Ranger('#callbacks', {
+    new Ranger('#rtl-volume', {
       scaleTicksCount: 10,
+      labelSuffix: '%',
       onStart: logEvent('onStart'),
       onChange: logEvent('onChange'),
       onEnd: logEvent('onEnd'),

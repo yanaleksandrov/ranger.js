@@ -16,6 +16,8 @@ export default class Ranger {
       scale: 'ranger-scale',
       scaleTick: 'ranger-scale-tick',
       scaleMinorTick: 'ranger-scale-tick ranger-scale-tick--minor',
+      // Added on top of scaleTick (not a replacement) for whichever major tick lands on minValue/maxValue.
+      scaleTickLimit: 'ranger-scale-tick--limit',
       label: 'ranger-label',
       labelItem: 'ranger-label-item',
       mark: 'ranger-marks',
@@ -48,6 +50,10 @@ export default class Ranger {
     format: null,
     // Displays the value exponentially between min/max while dragging itself stays linear.
     logScale: false,
+
+    // Clamps every resolved value to [minValue, maxValue] (either end optional) without touching the native min/max, so the tick scale/fill/labels keep spanning the slider's full domain.
+    minValue: null,
+    maxValue: null,
 
     // Values that magnetically pull a handle in once it's within snapThreshold of them.
     snapPoints: [],
@@ -244,6 +250,7 @@ export default class Ranger {
     } else if (!wantsMarks && this.marksContainer) {
       this.marksContainer.remove();
       this.marksContainer = null;
+      this.markEntries = null;
     }
 
     this.fromSlider.dispatchEvent(new Event('input'));
@@ -505,19 +512,29 @@ export default class Ranger {
     return this.activeSlider === slider ? this.activeStep : this.step;
   }
 
-  // Rounds to step, then snaps onto the nearest snapPoint within snapThreshold.
+  // Rounds to step, snaps onto the nearest snapPoint within snapThreshold, then clamps to [minValue, maxValue], in that order.
   resolveValue(rawValue, step) {
-    const value = Ranger.roundToStep(rawValue, step);
-    if (!this.snapPoints.length) {
-      return value;
+    let value = Ranger.roundToStep(rawValue, step);
+
+    if (this.snapPoints.length) {
+      const nearest = this.snapPoints.reduce((closest, point) => (
+        Math.abs(point - value) < Math.abs(closest - value) ? point : closest
+      ));
+      const threshold = (Number(this.fromSlider.max) - Number(this.fromSlider.min)) * this.snapThreshold;
+
+      if (Math.abs(nearest - value) <= threshold) {
+        value = nearest;
+      }
     }
 
-    const nearest = this.snapPoints.reduce((closest, point) => (
-      Math.abs(point - value) < Math.abs(closest - value) ? point : closest
-    ));
-    const threshold = (Number(this.fromSlider.max) - Number(this.fromSlider.min)) * this.snapThreshold;
+    if (this.minValue !== null) {
+      value = Math.max(value, this.minValue);
+    }
+    if (this.maxValue !== null) {
+      value = Math.min(value, this.maxValue);
+    }
 
-    return Math.abs(nearest - value) <= threshold ? nearest : value;
+    return value;
   }
 
   positionToValue(clientX) {
@@ -764,11 +781,10 @@ export default class Ranger {
     }
   }
 
-  // Centers on percent, then clamps so the label never overhangs past the track's own edges.
+  // Centers on percent, including at 0/100, so the label stays centered on the handle it's labeling instead of clamped flush inside the track.
   positionLabel(labelEl, percent, containerWidth) {
-    const raw = (percent / 100) * containerWidth - labelEl.offsetWidth / 2;
-    const clamped = Math.max(0, Math.min(containerWidth - labelEl.offsetWidth, raw));
-    labelEl.style.insetInlineStart = `${clamped}px`;
+    const centered = (percent / 100) * containerWidth - labelEl.offsetWidth / 2;
+    labelEl.style.insetInlineStart = `${centered}px`;
   }
 
   /**
@@ -786,9 +802,16 @@ export default class Ranger {
       const isMajor = index % minorStep === 0;
       const tick = Ranger.createElement('span', isMajor ? this.classes.scaleTick : this.classes.scaleMinorTick);
       let label = null;
+      let isLimit = false;
 
       if (isMajor) {
         const step = Ranger.roundToStep(value, this.step || 1);
+        // Flags the tick landing on minValue/maxValue, so it stays visible in arrangeScale() and can be styled apart.
+        isLimit = step === this.minValue || step === this.maxValue;
+        if (isLimit) {
+          tick.classList.add(this.classes.scaleTickLimit);
+        }
+
         const text = this.format
           ? this.format(step)
           : `${this.scaleTickPrefix}${step}${this.scaleTickSuffix}`;
@@ -799,7 +822,7 @@ export default class Ranger {
 
       scale.appendChild(tick);
 
-      return { value, tick, label, isMajor };
+      return { value, tick, label, isMajor, isLimit };
     });
 
     this.wrapper.appendChild(scale);
@@ -835,7 +858,7 @@ export default class Ranger {
     });
   }
 
-  // Shows every Nth major label so 0/last stay visible and spacing stays uniform (N divides evenly).
+  // Shows every Nth major tick (mark and label together) so 0/last stay visible and spacing stays uniform (N divides evenly).
   arrangeScale() {
     const majors = this.scaleTicks.filter((tick) => tick.isMajor);
     const lastIndex = majors.length - 1;
@@ -849,8 +872,9 @@ export default class Ranger {
     const minSkip = maxLabelWidth > 0 && trackWidth > 0 ? Math.ceil((maxLabelWidth * lastIndex) / trackWidth) : 1;
     const skip = Ranger.findSkip(lastIndex, Math.max(1, minSkip));
 
-    majors.forEach(({ label }, index) => {
-      label.style.visibility = index % skip === 0 ? 'visible' : 'hidden';
+    majors.forEach(({ tick, isLimit }, index) => {
+      // A minValue/maxValue tick stays visible regardless of skip — it marks where selection actually stops.
+      tick.style.visibility = index % skip === 0 || isLimit ? 'visible' : 'hidden';
     });
   }
 
@@ -862,7 +886,7 @@ export default class Ranger {
     return Array.from({ length: segments + 1 }, (_, index) => min + ((max - min) / segments) * index);
   }
 
-  // Fixed points/zones along the track (percent-positioned, so no resize handling is needed unlike labels).
+  // Fixed points/zones along the track, positioned by percent — the same units the fill layer uses.
   createMarks() {
     const container = Ranger.createElement('div', this.classes.mark);
     container.setAttribute('aria-hidden', 'true');
@@ -870,29 +894,41 @@ export default class Ranger {
     const min = Number(this.fromSlider.min);
     const max = Number(this.fromSlider.max);
 
-    this.marks.forEach((mark) => {
+    this.markEntries = this.marks.map((mark) => {
       const { value, from, to, label, className } = typeof mark === 'object' ? mark : { value: mark };
       const isZone = from !== undefined && to !== undefined;
       const baseClass = isZone ? this.classes.markRange : this.classes.markItem;
       const markEl = Ranger.createElement('span', [baseClass, className].filter(Boolean).join(' '));
 
-      if (isZone) {
-        const fromPercent = Ranger.calculatePercent(min, max, from);
-        const toPercent = Ranger.calculatePercent(min, max, to);
-        markEl.style.insetInlineStart = `${fromPercent}%`;
-        markEl.style.width = `${toPercent - fromPercent}%`;
-      } else {
-        markEl.style.insetInlineStart = `${Ranger.calculatePercent(min, max, value)}%`;
-      }
-
       if (label) {
         markEl.appendChild(Ranger.createElement('ins', '', label));
       }
       container.appendChild(markEl);
+
+      return isZone
+        ? { markEl, fromPercent: Ranger.calculatePercent(min, max, from), toPercent: Ranger.calculatePercent(min, max, to) }
+        : { markEl, fromPercent: Ranger.calculatePercent(min, max, value) };
     });
 
     this.wrapper.appendChild(container);
+    this.positionMarks();
+
     return container;
+  }
+
+  // Converts each mark's stored percent(s) into its inline position/width.
+  positionMarks() {
+    if (!this.markEntries) {
+      return;
+    }
+
+    this.markEntries.forEach(({ markEl, fromPercent, toPercent }) => {
+      markEl.style.insetInlineStart = `${fromPercent}%`;
+
+      if (toPercent !== undefined) {
+        markEl.style.width = `${toPercent - fromPercent}%`;
+      }
+    });
   }
 }
 
