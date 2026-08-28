@@ -1202,6 +1202,26 @@ describe('marks', () => {
     expect(marks[1].style.insetInlineStart).toBe('75%');
   });
 
+  it('centers a point mark on its value (matching the thumb), but leaves a zone mark edge-anchored', () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 10 });
+
+    try {
+      const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), { marks: [{ value: 40 }, { from: 10, to: 30 }] });
+      const [pointMark, zoneMark] = ranger.marksContainer.querySelectorAll('.ranger-mark');
+
+      // offsetWidth stubbed to 10px above — a point mark shifts back by half of its own rendered width.
+      expect(pointMark.style.marginInlineStart).toBe('-5px');
+      expect(zoneMark.style.marginInlineStart).toBe('');
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, 'offsetWidth', originalDescriptor);
+      } else {
+        delete HTMLElement.prototype.offsetWidth;
+      }
+    }
+  });
+
   it('accepts the object form with an optional label and className', () => {
     const ranger = new Ranger(makeInput({ min: 0, max: 100, value: 50 }), {
       marks: [{ value: 60, label: 'Recommended', className: 'ranger-mark--highlight' }],

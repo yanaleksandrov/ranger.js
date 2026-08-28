@@ -976,7 +976,12 @@ export default class Ranger {
       markEl.style.insetInlineStart = `${fromPercent}%`;
 
       if (toPercent !== undefined) {
+        // A zone's own left edge is the `from` boundary, so it stays anchored there (no centering).
         markEl.style.width = `${toPercent - fromPercent}%`;
+      } else {
+        // Centers a point mark on its value — matching the thumb's own center — using the mark's
+        // actual rendered width, so a custom className with a different width still centers correctly.
+        markEl.style.marginInlineStart = `${-markEl.offsetWidth / 2}px`;
       }
     });
   }

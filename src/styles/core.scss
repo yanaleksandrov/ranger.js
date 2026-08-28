@@ -311,7 +311,9 @@
 		top: 0;
 		width: 2px;
 
-		// Anchored at the mark's own edge (not centered), sidestepping the need for an RTL-aware centering transform.
+		// Point marks are re-centered on their value in JS (see positionMarks in index.js), via an
+		// inline margin-inline-start computed from the mark's own rendered width — zone marks are
+		// left at this edge anchor, since their left edge is the `from` boundary itself.
 		ins {
 			color: var(--ranger-tick-label-color);
 			font-size: 11px;
