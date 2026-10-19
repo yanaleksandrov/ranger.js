@@ -5,7 +5,7 @@ export default class Ranger {
   // Keys treated as a keyboard-driven nudge/drag (label visibility, onStart/onEnd).
   static NAVIGATION_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'];
 
-  // How sharply the --ranger-scale arc peaks; squaring narrows/heightens it vs a plain raised cosine.
+  // How sharply the scaleVar arc peaks; squaring narrows/heightens it vs a plain raised cosine.
   static ARC_SHARPNESS = 2;
 
   static DEFAULTS = {
@@ -31,8 +31,10 @@ export default class Ranger {
     scaleTicksCount: 10,
     // Unlabeled ticks inserted between each pair of major ticks, evenly splitting that gap.
     scaleMinorTicksCount: 0,
-    // Radius (in ticks) of the --ranger-scale arc on either side of a handle — see updateScale.
+    // Radius (in ticks) of the scaleVar arc on either side of a handle — see updateScale.
     scaleAnimatedTicksCount: 1,
+    // CSS custom property each tick receives its live 0–1 arc value in.
+    scaleVar: '--ranger-scale',
 
     labelIsVisible: true,
     labelPrefix: '',
@@ -42,7 +44,7 @@ export default class Ranger {
 
     disabled: false,
 
-    // CSS background (e.g. a linear-gradient) painted on the fill instead of --ranger-fill-color.
+    // CSS background image (e.g. a linear-gradient) painted over the fill's background color.
     fillGradient: null,
 
     // Display values (labels, dates, ...) to pick by index — min/max/step derived automatically.
@@ -52,7 +54,7 @@ export default class Ranger {
     // Displays the value exponentially between min/max while dragging itself stays linear.
     logScale: false,
 
-    // Clamps every resolved value to [minValue, maxValue] (either end optional) without touching the native min/max, so the tick scale/fill/labels keep spanning the slider's full domain.
+    // Clamps resolved values to [minValue, maxValue] without touching native min/max, so the scale/fill/labels still span the full domain.
     minValue: null,
     maxValue: null,
 
@@ -114,16 +116,9 @@ export default class Ranger {
     return ((value - start) / (end - start)) * 100;
   }
 
-  /** CSS length of `percent` of the track's handle travel (the track minus --ranger-inset at both ends). */
-  static trackSpan(percent) {
-    return `(100% - 2 * var(--ranger-inset, 0px)) * ${percent / 100}`;
-  }
-
   /**
-   * Inverse of logScale's default position→value mapping (`min * (max/min) ** ((position-min)/(max-min))`):
-   * given a real/displayed value (e.g. a $10 price), returns the linear drag position that would
-   * display it. Lets markup declare `value`/`data-points` in real units — no logarithm required on
-   * whichever end renders the initial HTML — while dragging itself stays linear post-init.
+   * Inverse of logScale's position→value mapping: converts a real/displayed value back to the
+   * linear drag position, so markup can declare `value`/`data-points` in real units.
    */
   static logScalePosition(value, min, max) {
     return min + (max - min) * (Math.log(value / min) / Math.log(max / min));
@@ -139,7 +134,10 @@ export default class Ranger {
     return lastIndex;
   }
 
-  /** @param {string|HTMLInputElement} target @param {object} [options] */
+  /**
+   * @param {string|HTMLInputElement} target - CSS selector or the range input to skin.
+   * @param {object} [options] - Overrides for Ranger.DEFAULTS.
+   */
   constructor(target, options = {}) {
     this.fromSlider = typeof target === 'string' ? document.querySelector(target) : target;
 
@@ -231,14 +229,13 @@ export default class Ranger {
       if (this.toSlider) {
         this.toSlider.disabled = this.disabled;
       }
-      this.wrapper.classList.toggle('is-disabled', this.disabled);
     }
 
     // Re-derives rangeSize the same way initialize() does, in case fixedRange just turned on.
     if ('fixedRange' in options && this.isRange) {
       this.rangeSize = typeof this.fixedRange === 'number'
-        ? this.fixedRange
-        : Number(this.toSlider.value) - Number(this.fromSlider.value);
+          ? this.fixedRange
+          : Number(this.toSlider.value) - Number(this.fromSlider.value);
     }
 
     if ('labelIsVisible' in options) {
@@ -294,12 +291,12 @@ export default class Ranger {
       this.fromSlider.value = Ranger.logScalePosition(Number(this.fromSlider.value), min, max);
       if (this.fromSlider.hasAttribute('data-points')) {
         this.fromSlider.dataset.points = this.parsePoints()
-          .map((point) => Ranger.logScalePosition(point, min, max))
-          .join(',');
+            .map((point) => Ranger.logScalePosition(point, min, max))
+            .join(',');
       }
     }
 
-    /* Neutralizes native `step` to "any" (it re-snaps assignments, breaking fineStep); `this.step` holds the real one. */
+    // Neutralizes native `step` to "any" (it re-snaps assignments, breaking fineStep); `this.step` holds the real one.
     this.step = this.fromSlider.step;
     this.fromSlider.step = 'any';
 
@@ -328,15 +325,15 @@ export default class Ranger {
 
       if (this.fixedRange) {
         this.rangeSize = typeof this.fixedRange === 'number'
-          ? this.fixedRange
-          : Number(this.toSlider.value) - Number(this.fromSlider.value);
+            ? this.fixedRange
+            : Number(this.toSlider.value) - Number(this.fromSlider.value);
 
         // Honors an explicit numeric fixedRange even if data-points's own gap differs.
         if (typeof this.fixedRange === 'number') {
           const max = Number(this.fromSlider.max);
           this.toSlider.value = Ranger.roundToStep(
-            Math.min(Number(this.fromSlider.value) + this.rangeSize, max),
-            this.step,
+              Math.min(Number(this.fromSlider.value) + this.rangeSize, max),
+              this.step,
           );
         }
       }
@@ -347,7 +344,6 @@ export default class Ranger {
       if (this.toSlider) {
         this.toSlider.disabled = true;
       }
-      wrapper.classList.add('is-disabled');
     } else if (this.isRange) {
       this.fill.classList.add('is-draggable');
     }
@@ -359,10 +355,8 @@ export default class Ranger {
     this.fillSlider();
     this.addListeners();
 
-    // Re-fills on resize since fillGradient positions itself in px (stale otherwise).
-    if (this.fillGradient) {
-      new ResizeObserver(() => this.fillSlider()).observe(this.wrapper);
-    }
+    // Re-fills on resize since the inset and fillGradient are applied in px (stale otherwise).
+    new ResizeObserver(() => this.fillSlider()).observe(this.wrapper);
 
     if (this.labelIsVisible) {
       this.label = this.createLabel();
@@ -378,9 +372,8 @@ export default class Ranger {
   }
 
   /**
-   * Parses data-points into extra handle starting values (comma-separated, forward-compatible with
-   * more than one) — today only the first entry is used, for the upper handle. Falls back to max
-   * wherever an entry is missing or not a number.
+   * Parses data-points into extra handle starting values; only the first entry is used (upper handle).
+   * Falls back to max when an entry is missing or not a number.
    */
   parsePoints() {
     const attr = this.fromSlider.dataset.points ?? '';
@@ -554,7 +547,7 @@ export default class Ranger {
 
     if (this.snapPoints.length) {
       const nearest = this.snapPoints.reduce((closest, point) => (
-        Math.abs(point - value) < Math.abs(closest - value) ? point : closest
+          Math.abs(point - value) < Math.abs(closest - value) ? point : closest
       ));
       const threshold = (Number(this.fromSlider.max) - Number(this.fromSlider.min)) * this.snapThreshold;
 
@@ -573,9 +566,14 @@ export default class Ranger {
     return value;
   }
 
-  // Track inset in px, read back from the wrapper's padding (set from --ranger-inset in CSS).
+  // Track inset in px, read back from the wrapper's inline padding.
   trackInset() {
     return parseFloat(getComputedStyle(this.wrapper).paddingInlineStart) || 0;
+  }
+
+  /** CSS length of `percent` of the track's handle travel (the track minus the inset at both ends). */
+  static trackSpan(percent, inset) {
+    return `(100% - ${inset * 2}px) * ${percent / 100}`;
   }
 
   positionToValue(clientX) {
@@ -602,8 +600,8 @@ export default class Ranger {
 
     // Only Left/Right flip under RTL; Up/Down always mean increase/decrease.
     const isForward = event.key === 'ArrowUp'
-      || (event.key === 'ArrowRight' && !this.isRTL)
-      || (event.key === 'ArrowLeft' && this.isRTL);
+        || (event.key === 'ArrowRight' && !this.isRTL)
+        || (event.key === 'ArrowLeft' && this.isRTL);
     const direction = isForward ? 1 : -1;
     const nativeStep = Number(this.step) || 1;
     const step = event.shiftKey ? (this.fineStep ?? nativeStep / 10) : nativeStep;
@@ -684,11 +682,14 @@ export default class Ranger {
     const onUp = () => {
       this.fill.removeEventListener('pointermove', onMove);
       this.fill.removeEventListener('pointerup', onUp);
+      this.fill.removeEventListener('pointercancel', onUp);
       this.onEnd?.([Number(this.fromSlider.value), Number(this.toSlider.value)], this.fill);
     };
 
     this.fill.addEventListener('pointermove', onMove);
     this.fill.addEventListener('pointerup', onUp);
+    // Also clean up on pointercancel (e.g. touch reinterpreted as scroll), or listeners leak on this.fill.
+    this.fill.addEventListener('pointercancel', onUp);
   }
 
   // Fill is a separate layer positioned by percentage, so it never draws over a handle.
@@ -702,20 +703,30 @@ export default class Ranger {
     const fromPercent = toSlider ? percent(fromSlider.value) : 0;
     const toPercent = percent(toSlider ? toSlider.value : fromSlider.value);
 
-    fill.style.setProperty('--ranger-fill-gradient', this.fillGradient || 'none');
-    // Logical (not left/right) so the fill mirrors correctly under RTL; it extends --ranger-inset past each handle to cover it.
-    fill.style.insetInlineStart = `calc(${Ranger.trackSpan(fromPercent)})`;
-    fill.style.width = `calc(${Ranger.trackSpan(toPercent - fromPercent)} + 2 * var(--ranger-inset, 0px))`;
+    const inset = this.trackInset();
 
-    // Sized to the full track and offset by the fill's own start, so gradient colors stay pinned to absolute values.
+    // Logical (not left/right) so the fill mirrors correctly under RTL; it extends the inset past each handle to cover it.
+    fill.style.insetInlineStart = `calc(${Ranger.trackSpan(fromPercent, inset)})`;
+    fill.style.width = `calc(${Ranger.trackSpan(toPercent - fromPercent, inset)} + ${inset * 2}px)`;
+
+    this.wrapper.classList.toggle('has-gradient', Boolean(this.fillGradient));
+
+    // Top layer spans exactly the handle travel, so gradient stops match values; the full-track layer below only paints the inset overhangs.
     if (this.fillGradient) {
       const trackWidth = this.wrapper.getBoundingClientRect().width;
-      const offset = (fromPercent / 100) * (trackWidth - this.trackInset() * 2);
-      fill.style.backgroundSize = `${trackWidth}px 100%`;
-      fill.style.backgroundPosition = this.isRTL ? `right -${offset}px top 0` : `left -${offset}px top 0`;
+      const travel = trackWidth - inset * 2;
+      const offset = (fromPercent / 100) * travel;
+      const side = this.isRTL ? 'right' : 'left';
+
+      fill.style.backgroundImage = `${this.fillGradient}, ${this.fillGradient}`;
+      fill.style.backgroundSize = `${travel}px 100%, ${trackWidth}px 100%`;
+      fill.style.backgroundPosition = `${side} ${inset - offset}px top 0, ${side} ${-offset}px top 0`;
+      fill.style.backgroundRepeat = 'no-repeat';
     } else {
+      fill.style.backgroundImage = '';
       fill.style.backgroundSize = '';
       fill.style.backgroundPosition = '';
+      fill.style.backgroundRepeat = '';
     }
 
     // Handles exactly overlapping would hide one behind the other (see .is-overlapping in CSS).
@@ -734,7 +745,7 @@ export default class Ranger {
     slider.setAttribute('aria-valuetext', this.formatDisplayValue(slider.value));
   }
 
-  // Reorders scale/label/fill/marks by DOM order (safe — only touched here, never mid-drag); the handles stay above them via the static z-index on `.ranger > input` in core.scss instead.
+  // Reorders scale/label/fill/marks in the DOM; handles stay on top via the static z-index on the input in ranger.scss.
   reorderLayers() {
     [this.scale, this.label, this.fill, this.marksContainer].forEach((layer) => {
       if (layer) {
@@ -745,7 +756,7 @@ export default class Ranger {
     this.updateHandleStackOrder(this.toSlider);
   }
 
-  // Keeps the more-likely-to-grab handle on top via z-index, not a DOM move — this fires on every drag tick, and reordering the DOM mid-drag can cancel the browser's native pointer capture.
+  // Keeps the more-likely-to-grab handle on top via z-index, not a DOM move, which would cancel pointer capture mid-drag.
   updateHandleStackOrder(target) {
     if (!this.toSlider) {
       return;
@@ -843,8 +854,8 @@ export default class Ranger {
 
     if (distanceX < 10) {
       labelFrom.innerHTML = fromSlider.value === toSlider.value
-        ? this.formatDisplayValue(fromSlider.value)
-        : `${this.formatDisplayValue(fromSlider.value)} – ${this.formatDisplayValue(toSlider.value)}`;
+          ? this.formatDisplayValue(fromSlider.value)
+          : `${this.formatDisplayValue(fromSlider.value)} – ${this.formatDisplayValue(toSlider.value)}`;
 
       this.positionLabel(labelFrom, percentFrom + (percentTo - percentFrom) / 2, containerWidth);
       labelTo.style.visibility = 'hidden';
@@ -853,14 +864,14 @@ export default class Ranger {
     }
   }
 
-  // Centers on percent, including at 0/100, so the label stays centered on the handle it's labeling instead of clamped flush inside the track.
+  // Centers the label on its handle by percent, even at 0/100, instead of clamping flush inside the track.
   positionLabel(labelEl, percent, containerWidth) {
     const centered = (percent / 100) * containerWidth - labelEl.offsetWidth / 2;
     labelEl.style.insetInlineStart = `${centered}px`;
   }
 
   /**
-   * Builds the tick scale — major + minor ticks, each with a live --ranger-scale property to animate.
+   * Builds the tick scale — major + minor ticks, each with a live scaleVar property to animate.
    */
   createScale() {
     const scale = Ranger.createElement('div', this.classes.scale);
@@ -885,8 +896,8 @@ export default class Ranger {
         }
 
         const text = this.format
-          ? this.format(step)
-          : `${this.scaleTickPrefix}${step}${this.scaleTickSuffix}`;
+            ? this.format(step)
+            : `${this.scaleTickPrefix}${step}${this.scaleTickSuffix}`;
 
         label = Ranger.createElement('ins', '', text);
         tick.appendChild(label);
@@ -910,7 +921,7 @@ export default class Ranger {
     return scale;
   }
 
-  // Sets --ranger-scale per tick: a raised-cosine arc, 1 at the handle, easing to 0 by scaleAnimatedTicksCount away.
+  // Sets scaleVar per tick: a raised-cosine arc, 1 at the handle, easing to 0 by scaleAnimatedTicksCount away.
   updateScale() {
     const { fromSlider, toSlider, scaleTicks, scaleAnimatedTicksCount } = this;
 
@@ -923,10 +934,10 @@ export default class Ranger {
     scaleTicks.forEach(({ value, tick }) => {
       const distance = Math.min(...handleValues.map((handleValue) => Math.abs(handleValue - value)));
       const scale = maxDistance > 0 && distance < maxDistance
-        ? ((Math.cos((distance / maxDistance) * Math.PI) + 1) / 2) ** Ranger.ARC_SHARPNESS
-        : 0;
+          ? ((Math.cos((distance / maxDistance) * Math.PI) + 1) / 2) ** Ranger.ARC_SHARPNESS
+          : 0;
 
-      tick.style.setProperty('--ranger-scale', scale.toFixed(2));
+      tick.style.setProperty(this.scaleVar, scale.toFixed(2));
     });
   }
 
@@ -978,8 +989,8 @@ export default class Ranger {
       container.appendChild(markEl);
 
       return isZone
-        ? { markEl, fromPercent: Ranger.calculatePercent(min, max, from), toPercent: Ranger.calculatePercent(min, max, to) }
-        : { markEl, fromPercent: Ranger.calculatePercent(min, max, value) };
+          ? { markEl, fromPercent: Ranger.calculatePercent(min, max, from), toPercent: Ranger.calculatePercent(min, max, to) }
+          : { markEl, fromPercent: Ranger.calculatePercent(min, max, value) };
     });
 
     this.wrapper.appendChild(container);
